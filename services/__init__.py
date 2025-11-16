@@ -10,6 +10,7 @@ from .podcast_service import PodcastService
 from .homework_service import HomeworkService
 from .homework_questions_service import HomeworkQuestionsService
 from .chatbot_service import ChatbotService
+from .quiz_service import QuizService
 
 __all__ = [
     'QuestionsService',
@@ -18,5 +19,7 @@ __all__ = [
     'PodcastService',
     'HomeworkService',
     'HomeworkQuestionsService',
+    'ChatbotService',
+    'QuizService',
     'ChatbotService'
 ]

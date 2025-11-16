@@ -1,0 +1,25 @@
+{
+  "quizId": "quiz_abc123",
+  "lectureId": "lecture_xyz789",
+  "studentId": "student_123",
+  "teacherId": "teacher_abc123",
+  
+  "correctAnswers": 8,
+  "incorrectAnswers": 2,
+  
+  "answers": [
+    {
+      "questionId": "q1",
+      "selectedAnswerId": "a",
+      "correctAnswerId": "a",
+      "isCorrect": true
+    },
+    {
+      "questionId": "q2",
+      "selectedAnswerId": "b",
+      "correctAnswerId": "c",
+      "isCorrect": false
+    }
+    // ... more answers
+  ]
+}

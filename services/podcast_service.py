@@ -32,7 +32,7 @@ Subject: {subject}
 
 Your task is to create a podcast dialogue between two hosts:
 - Host 1 (Ana): An enthusiastic teacher who explains concepts clearly
-- Host 2 (Mihai): A curious student representative who asks good questions
+- Host 2 (Bianca): A curious student representative who asks good questions
 
 Guidelines:
 1. Create a natural, conversational dialogue in Romanian
@@ -53,7 +53,7 @@ Output the dialogue as a JSON array with this exact format:
             "text": "Bună ziua tuturor! Astăzi vom explora un subiect fascinant..."
         }},
         {{
-            "speaker": "Mihai",
+            "speaker": "Bianca",
             "text": "Salut Ana! Sunt foarte curios să aflu mai multe despre..."
         }}
     ]
@@ -135,7 +135,7 @@ Generate the complete podcast dialogue now in Romanian:"""
         # For Romanian: "nova" (female) and "onyx" (male) tend to handle multilingual content well
         self.voices = {
             "Ana": os.getenv("OPENAI_VOICE_FEMALE", "nova"),     # Female voice - warm, clear
-            "Mihai": os.getenv("OPENAI_VOICE_MALE", "onyx")      # Male voice - deep, authoritative
+            "Bianca": os.getenv("OPENAI_VOICE_MALE", "onyx")      # Male voice - deep, authoritative
         }
         
         # Use tts-1-hd for higher quality (better for Romanian pronunciation)

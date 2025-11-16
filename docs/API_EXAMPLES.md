@@ -794,7 +794,7 @@ curl http://localhost:5000/api/health
 
 **Endpoint:** `POST /api/generate-podcast`
 
-This endpoint generates an educational podcast from the lecture content using OpenAI GPT-4o to create a natural dialogue between two speakers (Ana - teacher and Mihai - student) and OpenAI text-to-speech API to convert the dialogue to audio. The result is a complete MP3 audio file uploaded to Firebase Storage.
+This endpoint generates an educational podcast from the lecture content using OpenAI GPT-4o to create a natural dialogue between two speakers (Ana - teacher and Bianca - student) and OpenAI text-to-speech API to convert the dialogue to audio. The result is a complete MP3 audio file uploaded to Firebase Storage.
 
 ### Request
 
@@ -855,10 +855,10 @@ Example: `teacher_12345/6/lecture_67890/podcast_20241116_143045.mp3`
     "dialogue": [
       {
         "speaker": "Ana",
-        "text": "Bună, Mihai! Astăzi vom învăța despre celulă - unitatea structurală și funcțională a vieții. Ești gata să descoperim împreună ce este celula?"
+        "text": "Bună, Bianca! Astăzi vom învăța despre celulă - unitatea structurală și funcțională a vieții. Ești gata să descoperim împreună ce este celula?"
       },
       {
-        "speaker": "Mihai",
+        "speaker": "Bianca",
         "text": "Bună, Ana! Da, sunt foarte curios! Am auzit că toate viețuitoarele sunt făcute din celule, e adevărat?"
       },
       {
@@ -1048,7 +1048,7 @@ fetch('http://localhost:5000/api/generate-podcast', {
 
 7. **Voices**: Uses OpenAI TTS with Romanian-capable voices:
    - **Ana** (female): "nova" voice - warm, clear
-   - **Mihai** (male): "onyx" voice - deep, authoritative
+   - **Bianca** (male): "onyx" voice - deep, authoritative
 
 8. **Error Handling**: The endpoint includes graceful error handling. If Firebase is not configured but `upload_to_firebase=true`, it will return a clear error message rather than failing silently.
 

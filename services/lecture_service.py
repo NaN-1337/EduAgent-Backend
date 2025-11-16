@@ -11,6 +11,27 @@ from config import Config
 class LectureService:
     """Service to generate student and teacher lecture materials using RAG."""
     
+    # Prompt template for generating recap from previous lecture
+    RECAP_PROMPT_TEMPLATE = """You are an expert Romanian education content creator. Generate a brief recap/summary of the previous lecture to help students review before starting the new topic.
+
+Previous Lecture Content:
+{previous_content}
+
+Your task is to create a concise recap that:
+1. Summarizes the key concepts from the previous lecture
+2. Highlights the most important points students should remember
+3. Uses clear, age-appropriate Romanian language
+4. Is brief (2-4 paragraphs maximum)
+5. Serves as a bridge to help students recall what they learned
+
+Format the recap in HTML:
+- Use <h2> for the section heading "Recapitulare Lecție Anterioară"
+- Use <p> for paragraphs
+- Use <strong> for key terms
+- Use <ul> and <li> for bullet points if needed
+
+Generate the recap now:"""
+    
     # Prompt template for generating student version
     STUDENT_PROMPT_TEMPLATE = """You are an expert Romanian education content creator specializing in creating student-friendly learning materials.
 
@@ -118,6 +139,11 @@ Generate the enhanced teacher lecture now:"""
             openai_api_base=Config.OPENAI_API_BASE
         )
         
+        self.recap_prompt = PromptTemplate(
+            template=self.RECAP_PROMPT_TEMPLATE,
+            input_variables=["previous_content"]
+        )
+        
         self.student_prompt = PromptTemplate(
             template=self.STUDENT_PROMPT_TEMPLATE,
             input_variables=["context", "title", "subject", "grade", "clarifications"]
@@ -156,7 +182,9 @@ Generate the enhanced teacher lecture now:"""
         grade: int,
         questions: List[Dict],
         answers: Dict,
-        top_k: int = None
+        top_k: int = None,
+        needs_recap: bool = False,
+        previous_student_version: Optional[str] = None
     ) -> Dict[str, str]:
         """
         Generate both student and teacher versions of a lecture.
@@ -168,10 +196,28 @@ Generate the enhanced teacher lecture now:"""
             questions: List of clarifying questions (from first endpoint)
             answers: Dictionary mapping question IDs to answers
             top_k: Number of documents to retrieve. If None, uses Config.TOP_K_RESULTS
+            needs_recap: If True, generate a recap from previous lecture
+            previous_student_version: HTML content of previous lecture (required if needs_recap is True)
             
         Returns:
             Dictionary with 'student_version' and 'teacher_version' keys containing HTML content
         """
+        # Validate recap parameters
+        if needs_recap and not previous_student_version:
+            raise ValueError("previous_student_version is required when needs_recap is True")
+        
+        # Generate recap if needed
+        recap_html = ""
+        if needs_recap and previous_student_version:
+            print("Generating recap from previous lecture...")
+            recap_prompt = self.recap_prompt.format(
+                previous_content=previous_student_version
+            )
+            recap_response = self.llm.invoke(recap_prompt)
+            recap_html = recap_response.content if hasattr(recap_response, 'content') else str(recap_response)
+            recap_html = self._clean_html_response(recap_html)
+            print("✓ Recap generated")
+        
         # Retrieve relevant documents with metadata filtering
         query = f"{title} {subject}"
         docs = self.vs_manager.similarity_search(
@@ -204,6 +250,10 @@ Generate the enhanced teacher lecture now:"""
         # Clean up markdown code blocks if present
         student_content = self._clean_html_response(student_content)
         
+        # Prepend recap if generated
+        if recap_html:
+            student_content = recap_html + "\n\n" + student_content
+        
         # Generate teacher version
         print("Generating teacher version...")
         teacher_prompt = self.teacher_prompt.format(
@@ -220,6 +270,10 @@ Generate the enhanced teacher lecture now:"""
         
         # Clean up markdown code blocks if present
         teacher_content = self._clean_html_response(teacher_content)
+        
+        # Prepend recap if generated
+        if recap_html:
+            teacher_content = recap_html + "\n\n" + teacher_content
         
         return {
             "student_version": student_content,

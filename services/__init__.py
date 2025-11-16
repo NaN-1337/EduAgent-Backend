@@ -11,6 +11,8 @@ from .homework_service import HomeworkService
 from .homework_questions_service import HomeworkQuestionsService
 from .chatbot_service import ChatbotService
 from .quiz_service import QuizService
+from .pdf_parser_service import PDFParserService
+from .homework_grading_service import HomeworkGradingService
 
 __all__ = [
     'QuestionsService',
@@ -21,5 +23,6 @@ __all__ = [
     'HomeworkQuestionsService',
     'ChatbotService',
     'QuizService',
-    'ChatbotService'
+    'PDFParserService',
+    'HomeworkGradingService'
 ]

@@ -3,11 +3,10 @@ Podcast Service - Generate educational podcasts with dialogue and text-to-speech
 """
 import os
 import json
-import requests
 import subprocess
 import tempfile
 import shutil
-from typing import Dict, List, Tuple
+from typing import Dict, List
 from pathlib import Path
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate

@@ -2,14 +2,9 @@
 Flask Backend API for Romanian Education RAG System.
 Provides endpoints for generating clarifying questions and lecture materials.
 """
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-from typing import Dict
-from io import BytesIO
 import traceback
-import base64
-import os
-import datetime
 
 from firebase_service import FirebaseService
 from services import QuestionsService, LectureService, PresentonService, PodcastService
@@ -427,11 +422,6 @@ def generate_podcast():
                 "size_bytes": firebase_info['size_bytes']
             }
             print(f"✓ Podcast uploaded to Firebase: {firebase_info['destination_path']}")
-        
-        # Include audio base64 if requested
-        if return_dialogue:
-            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
-            response_data["data"]["audio_base64"] = audio_base64
         
         return jsonify(response_data), 200
         

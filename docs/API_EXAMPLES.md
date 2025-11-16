@@ -1800,4 +1800,667 @@ console.log('Quiz generated and saved successfully!');
 
 ---
 
+## 8. Parse Submission Endpoint
+
+**Endpoint:** `POST /api/parse-submission`
+
+This endpoint downloads a PDF or image homework submission from a URL and uses GPT-4o Vision API to extract handwritten text. PDFs are converted to images and processed page by page. Image files (JPEG, PNG) are processed directly.
+
+### Request
+
+**URL:** `http://localhost:5000/api/parse-submission`
+
+**Method:** `POST`
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json"
+}
+```
+
+**Body:**
+```json
+{
+  "submission_url": "https://storage.googleapis.com/your-bucket/submissions/student_homework.pdf"
+}
+```
+
+**Alternative (Image File):**
+```json
+{
+  "submission_url": "https://storage.googleapis.com/your-bucket/submissions/homework_photo.jpg"
+}
+```
+
+**Field Descriptions:**
+- `submission_url` (string, required): URL of the PDF or image file (JPEG, PNG) containing the student's handwritten homework submission
+
+### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "parsed_text": "=== PAGE 1 ===\n\nExercițiul 1\nCelula este cea mai mică unitate structurală și funcțională a vieții. Toate organismele sunt formate din celule.\n\n=== PAGE 2 ===\n\nExercițiul 2\nPărțile principale ale celulei sunt:\n1. Membrana celulară - protejează celula\n2. Citoplasma - substanță gelatinoasă\n3. Nucleul - conține ADN\n\nExercițiul 3\nCelula animală nu are perete celular, dar celula vegetală are perete celular rigid...",
+    "page_count": 2,
+    "pages": [
+      "=== PAGE 1 ===\n\nExercițiul 1\nCelula este cea mai mică unitate structurală și funcțională a vieții...",
+      "=== PAGE 2 ===\n\nExercițiul 2\nPărțile principale ale celulei sunt..."
+    ]
+  }
+}
+```
+
+**Field Descriptions in Response:**
+- `success` (boolean): Indicates if the request was successful
+- `data.parsed_text` (string): Complete transcribed text from all pages combined
+- `data.page_count` (int): Number of pages processed
+- `data.pages` (array): Array of transcribed text for each individual page
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Missing required parameter: submission_url is required"
+}
+```
+
+**Error Response (500 Internal Server Error):**
+```json
+{
+  "error": "Failed to parse PDF: URL does not point to a supported file (PDF, JPEG, PNG)"
+}
+```
+
+### cURL Example
+```bash
+curl -X POST http://localhost:5000/api/parse-submission \
+  -H "Content-Type: application/json" \
+  -d '{
+    "submission_url": "https://storage.googleapis.com/your-bucket/submissions/homework.pdf"
+  }'
+```
+
+### JavaScript Fetch Example
+```javascript
+fetch('http://localhost:5000/api/parse-submission', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    submission_url: 'https://storage.googleapis.com/your-bucket/submissions/homework.pdf'
+  })
+})
+  .then(response => response.json())
+  .then(data => {
+    const parsedText = data.data.parsed_text;
+    const pageCount = data.data.page_count;
+    
+    console.log(`Parsed ${pageCount} pages`);
+    console.log('Extracted text:', parsedText);
+  })
+  .catch(error => console.error('Error:', error));
+```
+
+**Important Notes:**
+
+1. **File Requirements**: The URL must point to a valid PDF or image file (JPEG, PNG). The service checks the content type and file extension.
+
+2. **Image File Support**: You can submit:
+   - PDF files (multi-page support)
+   - JPEG images (.jpg, .jpeg)
+   - PNG images (.png)
+
+3. **Handwriting Recognition**: Uses GPT-4o Vision with high detail mode for accurate transcription of handwritten text.
+
+4. **Processing Time**: 
+   - Images (JPEG/PNG): ~5-10 seconds per image
+   - PDF files: ~5-10 seconds per page
+   - A 3-page PDF takes approximately 15-30 seconds
+
+5. **Page Limit**: Maximum 20 pages per PDF to prevent excessive processing time and API costs. Single images are always processed.
+
+6. **Image Quality**: PDFs are converted to images at 300 DPI for optimal OCR accuracy.
+
+7. **Text Formatting**: Mathematical notation is converted to text format (e.g., "x^2", "√4"). Diagrams are described as [DIAGRAM: description].
+
+8. **Illegible Text**: If handwriting is unclear, the service marks it as [ILLEGIBLE] with a best guess [maybe: ...].
+
+---
+
+## 9. Grade Homework Endpoint
+
+**Endpoint:** `POST /api/grade-homework`
+
+This endpoint automatically grades a homework submission by comparing the student's parsed solutions with the original homework assignment. It provides exercise-by-exercise grading with partial credit support (multiples of 0.25) and generates detailed feedback.
+
+### Request
+
+**URL:** `http://localhost:5000/api/grade-homework`
+
+**Method:** `POST`
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json"
+}
+```
+
+**Body:**
+```json
+{
+  "homework_html": "<h1>Temă pentru acasă - Biologie</h1>\n\n<div class=\"exercise\">\n  <div class=\"exercise-header\">\n    <span class=\"exercise-number\">Exercițiul 1</span>\n    <span class=\"points\">(10 puncte)</span>\n  </div>\n  <div class=\"exercise-content\">\n    <p>Explică ce este celula și de ce este considerată unitatea structurală a vieții.</p>\n  </div>\n</div>...",
+  "parsed_submission": "=== PAGE 1 ===\n\nExercițiul 1\nCelula este cea mai mică unitate vie. Este unitatea structurală pentru că toate organismele sunt făcute din celule...",
+  "subject": "Biologie",
+  "grade": 6
+}
+```
+
+**Field Descriptions:**
+- `homework_html` (string, required): The original homework assignment in HTML format (from `/api/generate-homework`)
+- `parsed_submission` (string, required): The parsed text from the student's PDF submission (from `/api/parse-submission`)
+- `subject` (string, optional): Subject name for context
+- `grade` (int, optional): Grade level for context
+
+### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "total_points_earned": 37.5,
+    "total_points_possible": 50,
+    "final_grade_percentage": 75.0,
+    "exercises": [
+      {
+        "exercise_number": 1,
+        "exercise_content": "Explică ce este celula și de ce este considerată unitatea structurală a vieții.",
+        "student_solution": "Celula este cea mai mică unitate vie. Este unitatea structurală pentru că toate organismele sunt făcute din celule.",
+        "points_earned": 8.5,
+        "max_points": 10.0,
+        "percentage": 85.0,
+        "feedback": "Foarte bine! Ai înțeles conceptul fundamental că celula este cea mai mică unitate vie și ai menționat corect că toate organismele sunt formate din celule. Pentru punctaj maxim, ar fi fost ideal să menționezi și aspectul funcțional - că toate procesele vitale au loc la nivel celular. Continuă așa!",
+        "is_correct": false,
+        "is_partial": true
+      },
+      {
+        "exercise_number": 2,
+        "exercise_content": "Numește cele trei părți principale ale unei celule și descrie pe scurt rolul fiecăreia.",
+        "student_solution": "1. Membrana celulară - protejează celula și controlează ce intră și iese\n2. Citoplasma - substanță gelatinoasă unde se întâmplă procesele\n3. Nucleul - conține ADN și controlează celula",
+        "points_earned": 15.0,
+        "max_points": 15.0,
+        "percentage": 100.0,
+        "feedback": "Excelent! Ai identificat corect toate cele trei părți principale ale celulei și ai oferit descrieri precise și complete pentru fiecare. Răspunsul tău demonstrează o înțelegere foarte bună a structurii celulare. Bravo!",
+        "is_correct": true,
+        "is_partial": false
+      },
+      {
+        "exercise_number": 3,
+        "exercise_content": "Compară celula animală cu celula vegetală. Menționează două asemănări și două deosebiri.",
+        "student_solution": "Asemănări: amândouă au membrană, citoplasmă și nucleu.\nDeosebiri: celula vegetală are perete celular și cloroplaste, celula animală nu are.",
+        "points_earned": 14.0,
+        "max_points": 15.0,
+        "percentage": 93.0,
+        "feedback": "Foarte bine! Ai identificat corect asemănările și deosebirile principale între celula animală și vegetală. Răspunsul este aproape complet. Pentru punctaj maxim, ai fi putut menționa că ai găsit o asemănare (toate trei componentele de bază) și două deosebiri clare (perete celular și cloroplaste). Totuși, conținutul este corect și demonstrează înțelegere solidă!",
+        "is_correct": false,
+        "is_partial": true
+      }
+    ],
+    "overall_feedback": "**Nota finală: 37.5/50 puncte (75.0%)**\n\n**Sumar:**\n- Exerciții corecte: 1/3\n- Exerciții parțial corecte: 2/3\n\n**Evaluare generală:**\nFoarte bine! Ai o înțelegere solidă, cu mici aspecte de îmbunătățit.",
+    "subject": "Biologie",
+    "grade_level": 6
+  }
+}
+```
+
+**Field Descriptions in Response:**
+- `success` (boolean): Indicates if the request was successful
+- `data.total_points_earned` (float): Total points earned across all exercises
+- `data.total_points_possible` (float): Total points possible for the homework
+- `data.final_grade_percentage` (float): Overall percentage score
+- `data.exercises` (array): Array of graded exercise results
+  - `exercise_number` (int): Exercise number
+  - `exercise_content` (string): The original exercise question
+  - `student_solution` (string): The parsed student solution
+  - `points_earned` (float): Points earned (rounded to nearest 0.25)
+  - `max_points` (float): Maximum points for the exercise
+  - `percentage` (float): Percentage score for this exercise
+  - `feedback` (string): Detailed feedback in Romanian
+  - `is_correct` (boolean): True if ≥95% correct
+  - `is_partial` (boolean): True if partially correct (>0% and <95%)
+- `data.overall_feedback` (string): Overall performance summary and recommendations
+- `data.subject` (string): Subject name
+- `data.grade_level` (int): Grade level
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Missing required parameters: homework_html and parsed_submission are required"
+}
+```
+
+**Error Response (500 Internal Server Error):**
+```json
+{
+  "error": "Nu s-au putut extrage exercițiile din tema de casă."
+}
+```
+
+### cURL Example
+```bash
+curl -X POST http://localhost:5000/api/grade-homework \
+  -H "Content-Type: application/json" \
+  -d '{
+    "homework_html": "<h1>Temă pentru acasă</h1>...",
+    "parsed_submission": "Exercițiul 1...",
+    "subject": "Biologie",
+    "grade": 6
+  }'
+```
+
+### JavaScript Fetch Example
+```javascript
+fetch('http://localhost:5000/api/grade-homework', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    homework_html: homeworkHTML,  // From /api/generate-homework
+    parsed_submission: parsedText,  // From /api/parse-submission
+    subject: 'Biologie',
+    grade: 6
+  })
+})
+  .then(response => response.json())
+  .then(data => {
+    const totalScore = data.data.total_points_earned;
+    const totalPossible = data.data.total_points_possible;
+    const percentage = data.data.final_grade_percentage;
+    const exercises = data.data.exercises;
+    
+    console.log(`Grade: ${totalScore}/${totalPossible} (${percentage}%)`);
+    
+    // Display exercise-by-exercise results
+    exercises.forEach(ex => {
+      console.log(`Exercise ${ex.exercise_number}: ${ex.points_earned}/${ex.max_points}`);
+      console.log(`Feedback: ${ex.feedback}`);
+    });
+  })
+  .catch(error => console.error('Error:', error));
+```
+
+---
+
+## Complete Homework Grading Workflow
+
+Here's the complete flow for homework generation, submission, and grading:
+
+### Step 1: Generate Homework
+```javascript
+// Generate homework assignment
+const homeworkResponse = await fetch('http://localhost:5000/api/generate-homework', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    lesson_content: lessonHTML,
+    num_exercises: 5,
+    subject: 'biologie',
+    grade: 6,
+    questions: questions,
+    answers: answers
+  })
+});
+
+const homeworkData = await homeworkResponse.json();
+const homeworkHTML = homeworkData.data.homework;
+
+// Display homework to student
+document.getElementById('homework').innerHTML = homeworkHTML;
+```
+
+### Step 2: Student Completes and Uploads PDF
+```javascript
+// Student uploads their handwritten homework as PDF
+// Upload to your storage (Firebase, AWS S3, etc.)
+const submissionURL = await uploadPDFToStorage(pdfFile);
+// Returns: "https://storage.googleapis.com/.../homework_submission.pdf"
+```
+
+### Step 3: Parse the Submission
+```javascript
+// Parse the handwritten PDF submission
+const parseResponse = await fetch('http://localhost:5000/api/parse-submission', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    submission_url: submissionURL
+  })
+});
+
+const parseData = await parseResponse.json();
+const parsedText = parseData.data.parsed_text;
+
+console.log('Parsed submission:', parsedText);
+```
+
+### Step 4: Grade the Submission
+```javascript
+// Grade the homework
+const gradeResponse = await fetch('http://localhost:5000/api/grade-homework', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    homework_html: homeworkHTML,  // From Step 1
+    parsed_submission: parsedText,  // From Step 3
+    subject: 'Biologie',
+    grade: 6
+  })
+});
+
+const gradeData = await gradeResponse.json();
+
+// Display results
+const score = gradeData.data.total_points_earned;
+const total = gradeData.data.total_points_possible;
+const percentage = gradeData.data.final_grade_percentage;
+
+console.log(`Final Grade: ${score}/${total} (${percentage}%)`);
+console.log('Overall Feedback:', gradeData.data.overall_feedback);
+
+// Show exercise-by-exercise results
+gradeData.data.exercises.forEach(exercise => {
+  console.log(`\nExercise ${exercise.exercise_number}:`);
+  console.log(`Score: ${exercise.points_earned}/${exercise.max_points}`);
+  console.log(`Feedback: ${exercise.feedback}`);
+});
+```
+
+**Important Notes:**
+
+1. **Partial Credit**: Scores are automatically rounded to the nearest 0.25 (quarter points). For example:
+   - 75% of 10 points = 7.5 points
+   - 33% of 5 points = 1.5 → rounds to 1.5 points
+   - 40% of 5 points = 2.0 points
+
+2. **Grading Criteria**: The AI evaluates with strict attention to detail:
+   - **Correct methodology and approach**: up to 50% of points
+   - **Correct intermediate steps**: up to 25% of points
+   - **Correct final answer**: up to 25% of points
+   - **Maximum 75% if final answer is wrong** (even with correct method)
+   - For math problems, arithmetic accuracy is verified independently
+
+3. **Arithmetic Verification**: For mathematical exercises, a second AI verification step checks:
+   - If all calculations are arithmetically correct
+   - If the final answer satisfies the equation/problem
+   - Any calculation errors are identified and noted in feedback
+
+4. **Processing Time**: 
+   - Parsing: ~5-10 seconds per PDF page/image
+   - Grading: ~5-8 seconds per exercise (includes verification)
+   - Total for 5-exercise homework: ~30-50 seconds
+
+5. **Feedback Quality**: All feedback is provided in Romanian and is:
+   - Constructive and educational
+   - Specific to what the student did right/wrong
+   - Includes arithmetic error notifications when detected
+   - Includes suggestions for improvement
+
+6. **Exercise Detection**: The grading service automatically detects exercise boundaries in the parsed submission by looking for markers like "Exercițiul 1", "Ex. 2", etc.
+
+7. **Missing Solutions**: If an exercise solution is not found in the parsed submission, it's marked as [LIPSEȘTE SOLUȚIA] and receives 0 points.
+
+8. **HTML Format**: The homework_html must be in the format generated by `/api/generate-homework` with proper exercise div structure and point values.
+
+---
+
+## 10. Generate Flashcards Endpoint
+
+**Endpoint:** `POST /api/generate-flashcards`
+
+This endpoint generates educational flashcards from lesson content using GPT-4o. Flashcards are created as question-answer pairs that help students review and memorize key concepts from the lesson.
+
+### Request
+
+**URL:** `http://localhost:5000/api/generate-flashcards`
+
+**Method:** `POST`
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json"
+}
+```
+
+**Body:**
+```json
+{
+  "student_version": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<h2>Introducere</h2>\n<p>Celula este cea mai mică unitate vie a organismelor. Toate ființele vii sunt alcătuite din una sau mai multe celule...</p>",
+  "num_flashcards": 10,
+  "subject": "Biologie",
+  "grade": 6
+}
+```
+
+**Field Descriptions:**
+- `student_version` (string, required): The HTML content from `/api/generate-lecture` endpoint
+- `num_flashcards` (int, required): Number of flashcards to generate (1-50)
+- `subject` (string, optional): Subject name for context
+- `grade` (int, optional): Grade level for context
+
+### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "flashcards": [
+      {
+        "flashcard_text": "Ce este celula?",
+        "answer": "Celula este cea mai mică unitate structurală și funcțională a vieții. Toate organismele vii sunt formate din una sau mai multe celule."
+      },
+      {
+        "flashcard_text": "Nucleul celulei conține ______ și controlează funcțiile celulare.",
+        "answer": "ADN (material genetic)"
+      },
+      {
+        "flashcard_text": "Care sunt cele trei componente principale ale unei celule?",
+        "answer": "Membrana celulară, citoplasma și nucleul."
+      },
+      {
+        "flashcard_text": "Ce rol are membrana celulară?",
+        "answer": "Membrana celulară protejează celula și controlează ce intră și iese din ea, funcționând ca un filtru selectiv."
+      },
+      {
+        "flashcard_text": "Citoplasma este ______ în care plutesc organitele celulare.",
+        "answer": "o substanță gelatinoasă"
+      },
+      {
+        "flashcard_text": "Care este diferența principală între celula animală și celula vegetală?",
+        "answer": "Celula vegetală are perete celular rigid și cloroplaste pentru fotosinteză, în timp ce celula animală nu are aceste structuri."
+      },
+      {
+        "flashcard_text": "De ce plantele sunt verzi?",
+        "answer": "Plantele sunt verzi datorită clorofilei din cloroplaste, care este necesară pentru fotosinteză."
+      },
+      {
+        "flashcard_text": "Enumeră patru funcții ale celulei.",
+        "answer": "Nutriția, respirația celulară, reproducerea și eliminarea deșeurilor."
+      },
+      {
+        "flashcard_text": "Ce este respirația celulară?",
+        "answer": "Respirația celulară este procesul prin care celula obține energie din substanțele nutritive, având loc în mitocondrii."
+      },
+      {
+        "flashcard_text": "De ce celula este considerată \"unitatea funcțională\" a vieții?",
+        "answer": "Pentru că toate procesele vitale (nutriție, respirație, reproducere) au loc la nivel celular."
+      }
+    ],
+    "count": 10,
+    "subject": "Biologie",
+    "grade": 6
+  }
+}
+```
+
+**Field Descriptions in Response:**
+- `success` (boolean): Indicates if the request was successful
+- `data.flashcards` (array): Array of flashcard objects
+  - `flashcard_text` (string): The question, statement to complete, or prompt
+  - `answer` (string): The complete answer or explanation
+- `data.count` (int): Actual number of flashcards generated
+- `data.subject` (string): Subject name
+- `data.grade` (int): Grade level
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Missing required parameter: student_version is required"
+}
+```
+
+**Error Response (400 Bad Request - Invalid Range):**
+```json
+{
+  "error": "num_flashcards must be between 1 and 50"
+}
+```
+
+**Error Response (500 Internal Server Error):**
+```json
+{
+  "error": "Content is too short to generate flashcards (minimum 100 characters)"
+}
+```
+
+### cURL Example
+```bash
+curl -X POST http://localhost:5000/api/generate-flashcards \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student_version": "<h1>Celula</h1><p>Celula este cea mai mică unitate vie...</p>",
+    "num_flashcards": 10,
+    "subject": "Biologie",
+    "grade": 6
+  }'
+```
+
+### JavaScript Fetch Example
+```javascript
+fetch('http://localhost:5000/api/generate-flashcards', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    student_version: studentVersionHTML,  // From /api/generate-lecture
+    num_flashcards: 10,
+    subject: 'Biologie',
+    grade: 6
+  })
+})
+  .then(response => response.json())
+  .then(data => {
+    const flashcards = data.data.flashcards;
+    const count = data.data.count;
+    
+    console.log(`Generated ${count} flashcards`);
+    
+    // Display flashcards
+    flashcards.forEach((card, index) => {
+      console.log(`\nFlashcard ${index + 1}:`);
+      console.log(`Q: ${card.flashcard_text}`);
+      console.log(`A: ${card.answer}`);
+    });
+  })
+  .catch(error => console.error('Error:', error));
+```
+
+### Complete Workflow with Flashcards
+
+```javascript
+// Step 1: Generate lecture
+const lectureResponse = await fetch('http://localhost:5000/api/generate-lecture', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    title: 'Celula - unitatea structurală și funcțională a vieții',
+    subject: 'biologie',
+    grade: 6,
+    questions: questions,
+    answers: answers
+  })
+});
+
+const lectureData = await lectureResponse.json();
+const studentVersion = lectureData.data.student_version;
+
+// Step 2: Generate flashcards from the lesson
+const flashcardsResponse = await fetch('http://localhost:5000/api/generate-flashcards', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    student_version: studentVersion,
+    num_flashcards: 10,
+    subject: 'Biologie',
+    grade: 6
+  })
+});
+
+const flashcardsData = await flashcardsResponse.json();
+const flashcards = flashcardsData.data.flashcards;
+
+// Display in your flashcard UI
+flashcards.forEach((card, index) => {
+  createFlashcardElement(card.flashcard_text, card.answer, index);
+});
+```
+
+**Important Notes:**
+
+1. **Flashcard Types**: The AI generates various types of flashcards:
+   - Direct questions: "Ce este...?", "Care sunt...?"
+   - Fill-in-the-blank: "______ este cea mai mică unitate a vieții."
+   - Comparisons: "Care este diferența între X și Y?"
+   - Definitions: "Defineşte conceptul de..."
+   - Applications: "Dă un exemplu de..."
+
+2. **Content Coverage**: Flashcards cover all major concepts from the lesson in logical order.
+
+3. **Number of Flashcards**: 
+   - Minimum: 1 flashcard
+   - Maximum: 50 flashcards per request
+   - Recommended: 10-15 flashcards for a standard lesson
+
+4. **Content Length**: The student_version must be at least 100 characters long. For best results, use complete lesson content with multiple sections.
+
+5. **Processing Time**: Flashcard generation typically takes 5-15 seconds depending on the number requested.
+
+6. **Answer Quality**: Answers are:
+   - Clear and concise
+   - Accurate to the lesson content
+   - Written in Romanian
+   - Age-appropriate for the grade level
+
+7. **Use Cases**:
+   - Study tools for students
+   - Quick review before tests
+   - Spaced repetition learning apps
+   - Digital flashcard platforms
+   - Mobile learning applications
+
+8. **Integration**: Perfect for:
+   - Flashcard apps (Anki, Quizlet-style)
+   - Learning management systems
+   - Student portals
+   - Mobile education apps
+
+---
+
 

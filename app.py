@@ -15,7 +15,10 @@ from services import (
     HomeworkService,
     HomeworkQuestionsService,
     ChatbotService,
-    QuizService
+    QuizService,
+    PDFParserService,
+    HomeworkGradingService,
+    FlashcardsService
 )
 from config import Config
 from session_manager import get_session_manager
@@ -39,6 +42,9 @@ try:
     homework_questions_service = HomeworkQuestionsService()
     chatbot_service = ChatbotService()
     quiz_service = QuizService()
+    pdf_parser_service = PDFParserService()
+    grading_service = HomeworkGradingService()
+    flashcards_service = FlashcardsService()
     
     # Try to initialize Presenton service (optional)
     try:
@@ -871,6 +877,224 @@ def chat():
         }), 400
     except Exception as e:
         print(f"Error in chat: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+
+@app.route('/api/parse-submission', methods=['POST'])
+def parse_submission():
+    """
+    Parse a PDF homework submission and extract handwritten text.
+    
+    Expected JSON body:
+    {
+        "submission_url": "https://example.com/homework.pdf"
+    }
+    
+    Returns JSON with parsed text from the PDF.
+    """
+    try:
+        # Validate request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided"
+            }), 400
+        
+        # Extract submission URL
+        submission_url = data.get('submission_url')
+        
+        if not submission_url:
+            return jsonify({
+                "error": "Missing required parameter: submission_url is required"
+            }), 400
+        
+        print(f"Parsing PDF submission from: {submission_url}")
+        
+        # Parse the PDF
+        result = pdf_parser_service.parse_pdf_submission(submission_url)
+        
+        if not result.get("success"):
+            return jsonify({
+                "error": f"Failed to parse PDF: {result.get('error', 'Unknown error')}"
+            }), 500
+        
+        # Return parsed text
+        return jsonify({
+            "success": True,
+            "data": {
+                "parsed_text": result["parsed_text"],
+                "page_count": result["page_count"],
+                "pages": result["pages"]
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"Error parsing submission: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+
+@app.route('/api/grade-homework', methods=['POST'])
+def grade_homework():
+    """
+    Grade a homework submission by comparing with the original assignment.
+    
+    Expected JSON body:
+    {
+        "homework_html": "<h1>Temă pentru acasă</h1>...",
+        "parsed_submission": "=== PAGE 1 ===\nExercițiul 1...",
+        "subject": "Biologie",
+        "grade": 6
+    }
+    
+    Returns JSON with grading results for each exercise and overall grade.
+    """
+    try:
+        # Validate request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided"
+            }), 400
+        
+        # Extract parameters
+        homework_html = data.get('homework_html')
+        parsed_submission = data.get('parsed_submission')
+        subject = data.get('subject', '')
+        grade = data.get('grade')
+        
+        if not homework_html or not parsed_submission:
+            return jsonify({
+                "error": "Missing required parameters: homework_html and parsed_submission are required"
+            }), 400
+        
+        print(f"Grading homework for {subject} grade {grade}")
+        print(f"Homework length: {len(homework_html)} chars")
+        print(f"Submission length: {len(parsed_submission)} chars")
+        
+        # Grade the homework
+        result = grading_service.grade_homework(
+            homework_html=homework_html,
+            parsed_submission=parsed_submission,
+            subject=subject,
+            grade=grade
+        )
+        
+        if not result.get("success"):
+            return jsonify({
+                "error": result.get("error", "Failed to grade homework")
+            }), 500
+        
+        # Return grading results
+        return jsonify({
+            "success": True,
+            "data": {
+                "total_points_earned": result["total_points_earned"],
+                "total_points_possible": result["total_points_possible"],
+                "final_grade_percentage": result["final_grade_percentage"],
+                "exercises": result["exercises"],
+                "overall_feedback": result["overall_feedback"],
+                "subject": result.get("subject", ""),
+                "grade_level": result.get("grade_level")
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"Error grading homework: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+
+@app.route('/api/generate-flashcards', methods=['POST'])
+def generate_flashcards():
+    """
+    Generate flashcards from student lesson content.
+    
+    Expected JSON body:
+    {
+        "student_version": "<h1>Lesson content...</h1>",
+        "num_flashcards": 10,
+        "subject": "Biologie",
+        "grade": 6
+    }
+    
+    Returns JSON with flashcards array.
+    """
+    try:
+        # Validate request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided"
+            }), 400
+        
+        # Extract parameters
+        student_version = data.get('student_version')
+        num_flashcards = data.get('num_flashcards')
+        subject = data.get('subject', '')
+        grade = data.get('grade')
+        
+        if not student_version:
+            return jsonify({
+                "error": "Missing required parameter: student_version is required"
+            }), 400
+        
+        if not num_flashcards:
+            return jsonify({
+                "error": "Missing required parameter: num_flashcards is required"
+            }), 400
+        
+        # Validate num_flashcards
+        try:
+            num_flashcards = int(num_flashcards)
+        except (ValueError, TypeError):
+            return jsonify({
+                "error": "num_flashcards must be a valid integer"
+            }), 400
+        
+        if num_flashcards < 1 or num_flashcards > 50:
+            return jsonify({
+                "error": "num_flashcards must be between 1 and 50"
+            }), 400
+        
+        print(f"Generating {num_flashcards} flashcards for {subject} grade {grade}")
+        
+        # Generate flashcards
+        result = flashcards_service.generate_flashcards(
+            student_version=student_version,
+            num_flashcards=num_flashcards,
+            subject=subject,
+            grade=grade
+        )
+        
+        if not result.get("success"):
+            return jsonify({
+                "error": result.get("error", "Failed to generate flashcards")
+            }), 500
+        
+        # Return flashcards
+        return jsonify({
+            "success": True,
+            "data": {
+                "flashcards": result["flashcards"],
+                "count": result["count"],
+                "subject": result.get("subject", ""),
+                "grade": result.get("grade")
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"Error generating flashcards: {e}")
         traceback.print_exc()
         return jsonify({
             "error": f"Internal server error: {str(e)}"

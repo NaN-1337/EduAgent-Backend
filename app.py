@@ -11,10 +11,7 @@ import base64
 import os
 import datetime
 
-from questions_service import QuestionsService
-from lecture_service import LectureService
-from presenton_service import PresentonService
-from podcast_service import PodcastService
+from services import QuestionsService, LectureService, PresentonService, PodcastService
 from config import Config
 
 # Initialize Flask app

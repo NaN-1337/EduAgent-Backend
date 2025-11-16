@@ -4,12 +4,21 @@ Presenton Service - Generate presentations using Presenton API.
 import os
 import requests
 from typing import Dict, Optional
+import unicodedata
 
 
 class PresentonService:
     """Service to generate presentations using Presenton API."""
     
     BASE_URL = "https://api.presenton.ai/api/v1/ppt"
+    
+    # Romanian diacritic mapping: incorrect/similar -> correct
+    ROMANIAN_DIACRITICS_MAP = {
+        'ş': 'ș',  # s-cedilla to s-comma
+        'Ş': 'Ș',  # S-cedilla to S-comma
+        'ţ': 'ț',  # t-cedilla to t-comma
+        'Ţ': 'Ț',  # T-cedilla to T-comma
+    }
     
     def __init__(self, api_key: str = None):
         """
@@ -27,8 +36,31 @@ class PresentonService:
         
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json; charset=utf-8"
         }
+    
+    def normalize_romanian_text(self, text: str) -> str:
+        """
+        Normalize text to use correct Romanian diacritics.
+        
+        Romanian uses comma-below diacritics (ș, ț) not cedilla diacritics (ş, ţ).
+        This method ensures the correct Unicode characters are used.
+        
+        Args:
+            text: Input text that may contain incorrect diacritics
+            
+        Returns:
+            Text with correct Romanian diacritics
+        """
+        # Replace incorrect diacritics with correct ones
+        for incorrect, correct in self.ROMANIAN_DIACRITICS_MAP.items():
+            text = text.replace(incorrect, correct)
+        
+        # Ensure text is in NFC (Canonical Composition) form
+        # This combines base characters with diacritics into single characters
+        text = unicodedata.normalize('NFC', text)
+        
+        return text
     
     def generate_presentation(
         self,
@@ -61,6 +93,9 @@ class PresentonService:
         Returns:
             Dictionary with presentation_id, path, edit_path, and credits_consumed
         """
+        # Normalize Romanian diacritics in the content
+        content = self.normalize_romanian_text(content)
+        
         endpoint = f"{self.BASE_URL}/presentation/generate"
         
         payload = {

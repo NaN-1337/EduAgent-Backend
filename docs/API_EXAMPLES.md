@@ -198,7 +198,7 @@ This endpoint generates comprehensive lecture materials in two versions: one for
 }
 ```
 
-**Body:**
+**Body (Basic - New Lecture):**
 ```json
 {
   "title": "Celula - unitatea structurală și funcțională a vieții",
@@ -228,7 +228,30 @@ This endpoint generates comprehensive lecture materials in two versions: one for
     "1": "Introducerea conceptelor noi",
     "2": "50 minute (o oră)",
     "3": "Nu"
-  }
+  },
+  "needs_recap": false
+}
+```
+
+**Body (With Recap - When Students Need Review from Previous Lecture):**
+```json
+{
+  "title": "Reproducerea celulară - mitoză și meioză",
+  "subject": "biologie",
+  "grade": 6,
+  "questions": [
+    {
+      "id": 1,
+      "question": "Care este scopul principal al lecției?",
+      "type": "single-choice",
+      "options": ["Introducerea conceptelor noi", "Aprofundarea cunoștințelor existente"]
+    }
+  ],
+  "answers": {
+    "1": "Introducerea conceptelor noi"
+  },
+  "needs_recap": true,
+  "previous_student_version": "<h1>Celula - unitatea structurală și funcțională a vieții</h1><p>Celula este cea mai mică unitate vie...</p>"
 }
 ```
 
@@ -238,11 +261,15 @@ This endpoint generates comprehensive lecture materials in two versions: one for
 - `grade` (int, required): The grade level (1-12) - used for vector store filtering
 - `questions` (array, required): The questions array returned from the first endpoint
 - `answers` (object, required): Dictionary mapping question IDs (as strings) to the selected answers
+- `needs_recap` (boolean, optional): If true, generates a recap from the previous lecture. Default: false
+- `previous_student_version` (string, required if needs_recap=true): HTML content of the previous lecture's student version
 
 **Important Notes:**
 - The `subject` field should match the metadata in your vector store (typically lowercase)
 - The `answers` keys must match the question `id` values (converted to strings)
 - For "Other" options, the teacher can provide custom text as the answer value
+- **Recap Feature**: If `needs_recap` is true (e.g., when quiz performance indicates students need review), provide the `previous_student_version` HTML. A brief summary (2-4 paragraphs) will be prepended to both student and teacher versions of the new lecture
+- The recap is generated based solely on the previous lecture's student content, highlighting key concepts students should remember
 
 ### Response
 

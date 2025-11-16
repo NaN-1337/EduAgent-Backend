@@ -138,24 +138,29 @@ def generate_lecture():
     """
     Generate student and teacher versions of a lecture using RAG.
     
-    Expected JSON body:
+    Expected JSON body (basic):
     {
         "title": "Celula - unitatea structurală și funcțională a vieții",
         "subject": "biologie",
         "grade": 6,
-        "questions": [
-            {
-                "id": 1,
-                "question": "Care este scopul principal al lecției?",
-                "type": "single-choice",
-                "options": ["...", "..."]
-            }
-        ],
-        "answers": {
-            "1": "Introducerea conceptelor noi",
-            "2": "50 minute (o oră)"
-        }
+        "questions": [...],
+        "answers": {...},
+        "needs_recap": false
     }
+    
+    Expected JSON body (with recap from previous lecture):
+    {
+        "title": "Reproducerea celulară",
+        "subject": "biologie",
+        "grade": 6,
+        "questions": [...],
+        "answers": {...},
+        "needs_recap": true,
+        "previous_student_version": "<h1>Previous lecture...</h1>"
+    }
+    
+    If needs_recap is true, a brief summary of the previous lecture will be 
+    prepended to both student and teacher versions of the new lecture.
     
     Returns JSON with student_version and teacher_version in HTML format.
     """
@@ -174,10 +179,18 @@ def generate_lecture():
         grade = data.get('grade')
         questions = data.get('questions')
         answers = data.get('answers')
+        needs_recap = data.get('needs_recap', False)
+        previous_student_version = data.get('previous_student_version')
         
         if not title or not subject or grade is None or not questions or not answers:
             return jsonify({
                 "error": "Missing required parameters: title, subject, grade, questions, and answers are required"
+            }), 400
+        
+        # Validate recap parameters
+        if needs_recap and not previous_student_version:
+            return jsonify({
+                "error": "previous_student_version is required when needs_recap is True"
             }), 400
         
         # Validate grade
@@ -210,7 +223,9 @@ def generate_lecture():
             subject=subject,
             grade=grade,
             questions=questions,
-            answers=answers
+            answers=answers,
+            needs_recap=needs_recap,
+            previous_student_version=previous_student_version
         )
         
         # Return response

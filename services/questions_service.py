@@ -17,14 +17,15 @@ Given the following lecture parameters:
 - Subject: {subject}
 - Grade: {grade}
 
-Your task is to generate 5-8 clarifying questions that will help gather important information for creating a comprehensive and effective lesson. These questions should be based on pedagogical best practices and help understand:
+Your task is to generate 3-5 clarifying questions that will help gather the MOST important information for creating a comprehensive and effective lesson. Focus on the most critical aspects that will have the biggest impact on lesson quality. These questions should be based on pedagogical best practices and help understand:
 - The specific focus areas within the topic
 - The desired learning outcomes
 - The students' prior knowledge level
 - Teaching methodology preferences
 - Time constraints
 - Available resources
-- Assessment preferences
+
+IMPORTANT: Do NOT ask questions about student evaluation, assessment methods, quizzes, exams, or testing. Focus ONLY on the lesson content delivery and learning experience itself.
 
 For each question, provide 2-5 response options that are commonly applicable. Include an "Other" option where teachers might want to provide custom input.
 
@@ -63,8 +64,10 @@ Important rules:
 3. Use "single-choice" for questions with predefined options
 4. Use "yes-no" for binary questions
 5. Always include "Altele" as the last option for flexibility
-6. Focus on pedagogically relevant aspects
+6. Focus on pedagogically relevant aspects for content delivery
 7. Consider the grade level and subject when formulating questions
+8. NEVER ask about evaluation methods, quizzes, exams, tests, or assessments
+9. Focus questions on HOW to teach, not HOW to evaluate
 
 Generate the questions now:"""
     

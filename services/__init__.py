@@ -7,5 +7,16 @@ from .questions_service import QuestionsService
 from .lecture_service import LectureService
 from .presenton_service import PresentonService
 from .podcast_service import PodcastService
+from .homework_service import HomeworkService
+from .homework_questions_service import HomeworkQuestionsService
+from .chatbot_service import ChatbotService
 
-__all__ = ['QuestionsService', 'LectureService', 'PresentonService', 'PodcastService']
+__all__ = [
+    'QuestionsService',
+    'LectureService',
+    'PresentonService',
+    'PodcastService',
+    'HomeworkService',
+    'HomeworkQuestionsService',
+    'ChatbotService'
+]

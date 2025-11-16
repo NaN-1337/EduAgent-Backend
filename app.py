@@ -2,14 +2,19 @@
 Flask Backend API for Romanian Education RAG System.
 Provides endpoints for generating clarifying questions and lecture materials.
 """
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from typing import Dict
+from io import BytesIO
 import traceback
+import base64
+import os
+import datetime
 
 from questions_service import QuestionsService
 from lecture_service import LectureService
 from presenton_service import PresentonService
+from podcast_service import PodcastService
 from config import Config
 
 # Initialize Flask app
@@ -29,6 +34,14 @@ try:
     except ValueError as e:
         presenton_service = None
         print(f"⚠ Presenton service not available: {e}")
+    
+    # Try to initialize Podcast service (optional)
+    try:
+        podcast_service = PodcastService()
+        print("✓ Podcast service initialized successfully")
+    except ValueError as e:
+        podcast_service = None
+        print(f"⚠ Podcast service not available: {e}")
     
     print("✓ Core services initialized successfully")
 except Exception as e:
@@ -289,6 +302,134 @@ def generate_presentation():
         
     except Exception as e:
         print(f"Error in generate_presentation: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+
+@app.route('/api/generate-podcast', methods=['POST'])
+def generate_podcast():
+    """
+    Generate an educational podcast from lecture content with AI dialogue and TTS.
+    
+    Expected JSON body:
+    {
+        "student_version": "<h1>Title</h1><p>Content...</p>",
+        "teacher_version": "<h1>Title</h1><div class=\"teacher-note\">...</div>",
+        "grade": 6,
+        "subject": "Biologie",
+        "target_duration": 300,
+        "return_dialogue": true
+    }
+    
+    Returns audio file (MP3) and optionally the dialogue transcript.
+    """
+    try:
+        # Check if Podcast service is available
+        if podcast_service is None:
+            return jsonify({
+                "error": "Podcast service not configured. Please check your OpenAI API key."
+            }), 503
+        
+        # Validate request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided"
+            }), 400
+        
+        # Extract and validate parameters
+        student_version = data.get('student_version')
+        teacher_version = data.get('teacher_version')
+        grade = data.get('grade')
+        subject = data.get('subject')
+        
+        if not student_version or not teacher_version:
+            return jsonify({
+                "error": "Missing required parameters: student_version and teacher_version are required"
+            }), 400
+        
+        if not grade or not subject:
+            return jsonify({
+                "error": "Missing required parameters: grade and subject are required"
+            }), 400
+        
+        # Optional parameters
+        target_duration = data.get('target_duration', 300)  # 5 minutes default
+        return_dialogue = data.get('return_dialogue', True)
+        silence_between_turns = data.get('silence_between_turns', 500)
+        
+        # Validate target_duration
+        try:
+            target_duration = int(target_duration)
+            if target_duration < 60 or target_duration > 1800:  # 1 minute to 30 minutes
+                return jsonify({
+                    "error": "target_duration must be between 60 and 1800 seconds"
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                "error": "target_duration must be a valid integer"
+            }), 400
+        
+        # Generate podcast
+        print(f"Generating podcast: {subject}, Grade {grade}, Duration: {target_duration}s")
+        audio_bytes, dialogue = podcast_service.create_podcast(
+            student_content=student_version,
+            teacher_content=teacher_version,
+            grade=grade,
+            subject=subject,
+            target_duration=target_duration,
+            silence_between_turns=silence_between_turns
+        )
+        
+        # Save podcast file locally
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"podcast_{subject}_{grade}_{timestamp}.mp3"
+        output_path = os.path.join(os.getcwd(), "podcasts", filename)
+        
+        # Create podcasts directory if it doesn't exist
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        
+        # Write audio bytes to file
+        with open(output_path, 'wb') as f:
+            f.write(audio_bytes)
+        
+        print(f"✓ Podcast saved to: {output_path}")
+        
+        # Create response
+        if return_dialogue:
+            # Return JSON with audio data (base64 encoded) and dialogue
+            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+            
+            return jsonify({
+                "success": True,
+                "data": {
+                    "audio_base64": audio_base64,
+                    "audio_size_bytes": len(audio_bytes),
+                    "file_path": output_path,
+                    "filename": filename,
+                    "dialogue": dialogue,
+                    "metadata": {
+                        "grade": grade,
+                        "subject": subject,
+                        "duration_target": target_duration,
+                        "turns_count": len(dialogue)
+                    }
+                }
+            }), 200
+        else:
+            # Return audio file directly
+            return send_file(
+                BytesIO(audio_bytes),
+                mimetype='audio/mpeg',
+                as_attachment=True,
+                download_name=f'podcast_{subject}_{grade}.mp3'
+            )
+        
+    except Exception as e:
+        print(f"Error in generate_podcast: {e}")
         traceback.print_exc()
         return jsonify({
             "error": f"Internal server error: {str(e)}"

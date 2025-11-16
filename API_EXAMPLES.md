@@ -787,3 +787,82 @@ curl http://localhost:5000/api/health
    - Create a custom slide editor if needed
 
 9. **CORS**: The API has CORS enabled for all origins. In production, you may want to restrict this to your frontend domain.
+
+---
+
+## 4. Generate Podcast Endpoint
+
+**Endpoint:** `POST /api/generate-podcast`
+
+This endpoint generates an educational podcast from the lecture content using OpenAI GPT-4o to create a natural dialogue between two speakers (Ana - teacher and Mihai - student) and Async.ai text-to-speech API to convert the dialogue to audio. The result is a complete MP3 audio file with both voices.
+
+### Request
+
+**URL:** `http://localhost:5000/api/generate-podcast`
+
+**Method:** `POST`
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json"
+}
+```
+
+**Body:**
+```json
+{
+  "student_version": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<h2>Introducere</h2>\n<p>Celula este cea mai mică unitate vie...</p>",
+  "teacher_version": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<div class=\"teacher-note\">[NOTĂ PROFESOR: Această lecție este concepută pentru clasa a 6-a...]</div>",
+  "grade": 6,
+  "subject": "Biologie",
+  "target_duration": 300,
+  "return_dialogue": true,
+  "silence_between_turns": 500
+}
+```
+
+**Field Descriptions:**
+- `student_version` (string, required): The HTML content for students from `/api/generate-lecture`
+- `teacher_version` (string, required): The HTML content for teachers from `/api/generate-lecture`
+- `grade` (int, required): Grade level (1-12) for age-appropriate dialogue
+- `subject` (string, required): Subject name for contextual dialogue
+- `target_duration` (int, optional): Target podcast duration in seconds (default: 300, range: 60-1800)
+- `return_dialogue` (boolean, optional): If true, returns JSON with audio and dialogue transcript. If false, returns audio file directly (default: true)
+- `silence_between_turns` (int, optional): Milliseconds of silence between dialogue turns (default: 500)
+
+### Response
+
+**Success Response with Dialogue (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "audio_base64": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAAGJgDU1NTU1NTU1NTU1NTU1NTU1NTU...",
+    "audio_size_bytes": 245632,
+    "dialogue": [
+      {
+        "speaker": "Ana",
+        "text": "Bună, Mihai! Astăzi vom învăța despre celulă - unitatea structurală și funcțională a vieții. Ești gata să descoperim împreună ce este celula?"
+      },
+      {
+        "speaker": "Mihai",
+        "text": "Bună, Ana! Da, sunt foarte curios! Am auzit că toate viețuitoarele sunt făcute din celule, e adevărat?"
+      },
+      {
+        "speaker": "Ana",
+        "text": "Exact! Celula este cea mai mică unitate vie. Toate ființele vii, de la bacterii care au o singură celulă, până la oameni care au trilioane de celule, sunt alcătuite din aceste unități minuscule."
+      }
+    ],
+    "metadata": {
+      "grade": 6,
+      "subject": "Biologie",
+      "duration_target": 300,
+      "turns_count": 10
+    }
+  }
+}
+```
+
+For complete examples and more details, please refer to the updated API_EXAMPLES.md file.
+

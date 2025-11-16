@@ -4,8 +4,6 @@ RAG Chain module - Implements the complete Retrieval-Augmented Generation pipeli
 from typing import Optional
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
 from vector_store import VectorStoreManager
 from memory import ConversationMemory
 from config import Config
@@ -22,11 +20,15 @@ You assist teachers by generating:
 2. Detailed content under each structure point, ready to be turned into slides.
 3. A comprehension quiz with multiple-choice or short-answer questions designed to test students' understanding of the lesson.
 
-Always consider the grade level, language appropriateness, and curriculum expectations for the 6th grade and subject biology.
+Always consider the grade level, language appropriateness, and curriculum expectations for the given grade and the given subject. If not given by the user, then ask the user for them using Romanian language.
 
-When referencing the retrieved content from the context below, paraphrase appropriately but maintain accuracy. If specific required information is not included in the provided curriculum context, acknowledge that limitation and avoid speculation.
+Don't start to generate the lesson until you have all the necessary information, including the title that has to be part of the subject.
+
+When referencing the retrieved content from the context below, paraphrase appropriately but maintain accuracy. If specific required information is not included in the provided context, acknowledge that limitation and avoid speculation.
 
 Keep the tone professional, concise, and pedagogically sound.
+
+If you don't have specific information about the subject in the context, state that it is not available.
 
 Output format:
 - Title Slide
@@ -34,7 +36,7 @@ Output format:
 - Detailed Content: [Teacher notes per slide, using short and clear language suitable for students]
 - Quiz (5–7 questions): [Clearly separated section; include correct answers only if asked]
 
-Context from curriculum: {context}
+Context: {context}. If the requested information is not found in the context, answer that it is not available.
 
 Previous conversation history: {history}
 
@@ -44,7 +46,8 @@ Teacher's request: {question}"""
         self,
         vector_store_manager: Optional[VectorStoreManager] = None,
         model_name: str = None,
-        temperature: float = None
+        temperature: float = None,
+        top_k: int = None
     ):
         """
         Initialize the RAG chain.
@@ -53,6 +56,7 @@ Teacher's request: {question}"""
             vector_store_manager: VectorStoreManager instance. If None, creates new one.
             model_name: OpenAI model name. If None, uses Config.OPENAI_MODEL
             temperature: Model temperature. If None, uses Config.TEMPERATURE
+            top_k: Number of documents to retrieve. If None, uses Config.TOP_K_RESULTS
         """
         # Initialize or use provided vector store manager
         self.vs_manager = vector_store_manager or VectorStoreManager()
@@ -62,7 +66,7 @@ Teacher's request: {question}"""
             self.vs_manager.load_vector_store()
         except FileNotFoundError as e:
             print(f"Warning: {e}")
-            print("Please run embed_pdfs.py first to create the vector store.")
+            print("Please ensure the vector store exists at the configured path.")
             raise
         
         # Initialize memory
@@ -71,6 +75,7 @@ Teacher's request: {question}"""
         # Initialize LLM
         self.model_name = model_name or Config.OPENAI_MODEL
         self.temperature = temperature if temperature is not None else Config.TEMPERATURE
+        self.top_k = top_k or Config.TOP_K_RESULTS
         
         self.llm = ChatOpenAI(
             model=self.model_name,
@@ -85,10 +90,8 @@ Teacher's request: {question}"""
             input_variables=["context", "history", "question"]
         )
         
-        # Get retriever
-        self.retriever = self.vs_manager.get_retriever()
-        
         print(f"RAG Chain initialized with model: {self.model_name}")
+        print(f"Top-K retrieval: {self.top_k} documents")
     
     def _format_docs(self, docs) -> str:
         """
@@ -123,32 +126,30 @@ Teacher's request: {question}"""
         # Get conversation history
         history = self.memory.get_history_string()
         
-        # Retrieve relevant documents
-        docs = self.retriever.invoke(question)
+        # Retrieve relevant documents based on the question using similarity search
+        docs = self.vs_manager.similarity_search(question, k=self.top_k)
         context = self._format_docs(docs)
         
-        # Build the chain
-        chain = (
-            {
-                "context": lambda x: context,
-                "history": lambda x: history,
-                "question": RunnablePassthrough()
-            }
-            | self.prompt
-            | self.llm
-            | StrOutputParser()
+        # Create the prompt with the actual context and question
+        formatted_prompt = self.prompt.format(
+            context=context,
+            history=history,
+            question=question
         )
         
         # Get response
+
         if stream:
             response_text = ""
             print("\nAssistant: ", end="", flush=True)
-            for chunk in chain.stream(question):
-                print(chunk, end="", flush=True)
-                response_text += chunk
+            for chunk in self.llm.stream(formatted_prompt): # Stream response
+                content = chunk.content if hasattr(chunk, 'content') else str(chunk) # Extract content from chunk
+                print(content, end="", flush=True) # Stream output
+                response_text += content # Accumulate response 
             print()  # New line after streaming
         else:
-            response_text = chain.invoke(question)
+            response = self.llm.invoke(formatted_prompt) # Non-streaming response
+            response_text = response.content if hasattr(response, 'content') else str(response) # Extract content
         
         # Store in memory
         self.memory.add_user_message(question)
@@ -166,7 +167,7 @@ Teacher's request: {question}"""
         Returns:
             List of relevant documents.
         """
-        docs = self.retriever.invoke(question)
+        docs = self.vs_manager.similarity_search(question, k=self.top_k)
         return docs
     
     def clear_history(self):

@@ -16,6 +16,10 @@ ENV/
 
 # Vector Store
 vector_store/
+vectorstore/
+chroma_db/
+chroma.sqlite
+*.sqlite3
 
 # IDE
 .vscode/

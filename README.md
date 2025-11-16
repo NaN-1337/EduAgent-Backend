@@ -1,26 +1,25 @@
-# RAG Chatbot with LangChain
+# RAG Chatbot for Romanian Education
 
-A Retrieval-Augmented Generation (RAG) chatbot that allows you to ask questions about your PDF documents using OpenAI's GPT models and local FAISS vector storage.
+A Retrieval-Augmented Generation (RAG) chatbot that generates educational materials for Romanian teachers using OpenAI's GPT models and ChromaDB vector storage with pre-embedded curriculum documents.
 
 ## Features
 
-- 📄 Load and process multiple PDF documents
-- 🔍 Local vector storage using FAISS (no cloud database required)
+- 📄 Uses pre-embedded Romanian curriculum documents from manuale.edu.ro
+- 🔍 Local vector storage using ChromaDB
 - 💬 Interactive chat interface with conversation memory
 - 🧠 Context-aware responses using RAG
+- 🎓 Generates lesson plans, PowerPoint outlines, and comprehension quizzes
 - 📊 Document source tracking
 - 🔄 Streaming responses
 
 ## Architecture
 
-Based on the LangChain flow with the following components:
+The system consists of:
 
-1. **File Loader**: Loads PDF documents from local directory
-2. **Text Splitter**: Chunks documents for optimal embedding
-3. **Vector Store**: FAISS with OpenAI embeddings (local storage)
-4. **Memory**: Conversation history management
-5. **RAG Chain**: Combines retrieval with GPT-4o-mini for answers
-6. **Prompt Template**: Contextual prompt engineering
+1. **Vector Store (ChromaDB)**: Pre-embedded curriculum documents (already set up)
+2. **Memory**: Conversation history management
+3. **RAG Chain**: Combines retrieval with GPT-4o-mini for curriculum-aligned answers
+4. **Educational Prompt**: Specialized for generating Romanian educational materials
 
 ## Installation
 
@@ -59,32 +58,7 @@ OPENAI_API_KEY=sk-your-api-key-here
 
 ## Usage
 
-### Step 1: Prepare Your PDFs
-
-Place your PDF documents in the `./pdfs` directory:
-
-```bash
-mkdir pdfs
-# Copy your PDF files to the pdfs directory
-```
-
-### Step 2: Create the Vector Store
-
-Run the embedding script to process your PDFs and create the local vector store:
-
-```bash
-python embed_pdfs.py
-```
-
-This will:
-- Load all PDF files from `./pdfs`
-- Split them into chunks
-- Create embeddings using OpenAI
-- Store them locally in `./vector_store`
-
-### Step 3: Start the Chatbot
-
-Run the main script to start the interactive chat:
+The vector store with embedded curriculum documents is already set up. Simply start the chatbot:
 
 ```bash
 python main.py
@@ -93,11 +67,25 @@ python main.py
 ### Available Commands
 
 In the chatbot:
-- Type your question to get an answer
+- Type your request to generate educational materials
 - `sources` - Show source documents for the last question
 - `history` - Show conversation history
 - `clear` - Clear conversation history
 - `quit` or `exit` - Exit the chatbot
+
+### Example Requests
+
+```
+You: Generate a lesson plan for grade 6 biology about photosynthesis
+You: Create a PowerPoint outline about cells and their structure
+You: Make a quiz about plant life cycles for grade 6
+```
+
+The system will generate:
+- **Title Slide** with appropriate subject and grade level
+- **Slide Structure** with bullet point outlines
+- **Detailed Content** ready for PowerPoint slides
+- **Comprehension Quiz** with 5-7 questions
 
 ## Configuration
 
@@ -111,12 +99,8 @@ OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 TEMPERATURE=0.1
 
 # Paths
-PDF_DIRECTORY=./pdfs
-VECTOR_STORE_PATH=./vector_store
-
-# Text Splitting
-CHUNK_SIZE=1000
-CHUNK_OVERLAP=200
+VECTOR_STORE_PATH=./vectorstore
+CHROMA_COLLECTION_NAME=hackathon_collection
 
 # Retrieval
 TOP_K_RESULTS=4
@@ -127,61 +111,30 @@ TOP_K_RESULTS=4
 ```
 Hackathon Adobe/
 ├── config.py              # Configuration management
-├── pdf_loader.py          # PDF document loading
-├── text_splitter.py       # Document chunking
-├── vector_store.py        # FAISS vector store management
+├── vector_store.py        # ChromaDB vector store management
 ├── memory.py              # Conversation memory
 ├── rag_chain.py           # RAG pipeline implementation
-├── embed_pdfs.py          # Script to embed PDFs
 ├── main.py                # Interactive chatbot
 ├── requirements.txt       # Python dependencies
 ├── .env.example           # Environment variables template
 ├── .gitignore            # Git ignore file
-└── pdfs/                  # Directory for PDF files
-    └── (your PDF files)
+└── vectorstore/          # Pre-embedded curriculum documents
+    └── chroma.sqlite3    # ChromaDB database
 ```
 
 ## How It Works
 
-1. **Document Processing**: PDFs are loaded and split into manageable chunks
-2. **Embedding**: Each chunk is embedded using OpenAI's embedding model
-3. **Vector Storage**: Embeddings are stored locally in FAISS for fast retrieval
-4. **Query Processing**: User questions are embedded and used to find relevant chunks
-5. **Context Building**: Retrieved chunks + conversation history form the context
-6. **Response Generation**: GPT-4o-mini generates an answer based on the context
-
-## Example Session
-
-```
-You: What is this document about?
-Assistant: Based on the documents, this appears to be about...
-
-You: Can you provide more details?
-Assistant: Certainly! Building on the previous context...
-
-You: sources
-Sources for: 'Can you provide more details?'
-1. document.pdf (Page 3)
-   Preview: This section discusses...
-```
-
-## Troubleshooting
-
-### "Vector store not found"
-Run `python embed_pdfs.py` first to create the vector store.
-
-### "No PDF files found"
-Make sure you have PDF files in the `./pdfs` directory.
-
-### "OPENAI_API_KEY not found"
-Create a `.env` file with your OpenAI API key (see `.env.example`).
+1. **Document Retrieval**: User request is embedded and used to find relevant curriculum chunks
+2. **Context Building**: Retrieved chunks + conversation history form the context
+3. **Response Generation**: GPT-4o-mini generates curriculum-aligned educational materials
+4. **Educational Format**: Output is structured for immediate use by teachers
 
 ## Notes
 
-- Vector store is created locally (no Astra DB or cloud dependencies)
-- All data stays on your machine
+- Vector store is pre-populated with Romanian curriculum documents
+- All data stays on your machine (except OpenAI API calls)
 - Requires OpenAI API key for embeddings and chat completions
-- First-time embedding may take a few minutes depending on document size
+- Designed for Romanian Ministry of Education curriculum standards
 
 ## License
 

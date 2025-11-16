@@ -20,15 +20,11 @@ class Config:
     TEMPERATURE = float(os.getenv("TEMPERATURE", "0.1"))
     
     # Paths
-    PDF_DIRECTORY = Path(os.getenv("PDF_DIRECTORY", "./pdfs"))
-    VECTOR_STORE_PATH = Path(os.getenv("VECTOR_STORE_PATH", "./vector_store"))
-    
-    # Text Splitting Configuration
-    CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "1000"))
-    CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "200"))
+    VECTOR_STORE_PATH = Path(os.getenv("VECTOR_STORE_PATH", "./vectorstore"))
+    CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "hackathon_collection")
     
     # Retrieval Configuration
-    TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "4"))
+    TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "8"))
     
     @classmethod
     def validate(cls):
@@ -39,9 +35,11 @@ class Config:
                 "See .env.example for reference."
             )
         
-        # Create directories if they don't exist
-        cls.PDF_DIRECTORY.mkdir(exist_ok=True)
-        cls.VECTOR_STORE_PATH.mkdir(exist_ok=True)
+        if not cls.VECTOR_STORE_PATH.exists():
+            raise ValueError(
+                f"Vector store not found at: {cls.VECTOR_STORE_PATH}\n"
+                f"Please ensure the vectorstore directory exists."
+            )
         
         return True
 

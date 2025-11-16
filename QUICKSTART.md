@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-## Setup (5 minutes)
+## Setup (3 minutes)
 
 ### 1. Install Dependencies
 ```bash
@@ -13,47 +13,34 @@ Edit the `.env` file and add your API key:
 OPENAI_API_KEY=sk-your-actual-api-key-here
 ```
 
-### 3. Add PDF Files
-Copy your PDF documents to the `pdfs` folder:
-```
-pdfs/
-  └── your-document.pdf
-```
-
-## Run the Chatbot
-
-### First Time: Embed Your PDFs
-```bash
-python embed_pdfs.py
-```
-This creates a local vector store from your PDFs (takes a few minutes).
-
-### Start Chatting
+### 3. Start the Chatbot
 ```bash
 python main.py
 ```
 
+The vector store with Romanian curriculum documents is already embedded and ready to use!
+
 ## Example Interaction
 
 ```
-You: What is this document about?
-Assistant: [AI provides answer based on your PDFs]
+You: Generate a lesson plan for grade 6 biology about photosynthesis
+Assistant: [AI generates structured lesson plan with slides and quiz]
 
-You: Can you elaborate on that?
-Assistant: [AI provides detailed answer with context]
+You: Create a PowerPoint outline about cells
+Assistant: [AI provides detailed outline ready for slides]
 
 You: sources
-[Shows which PDF pages were used to answer]
+[Shows which curriculum documents were used]
 
 You: quit
 ```
 
 ## Tips
 
-- The chatbot remembers conversation history
+- The chatbot generates complete educational materials (lesson plans, slides, quizzes)
 - Use `clear` to start a fresh conversation
-- Use `sources` to see which documents were referenced
-- Add more PDFs anytime and re-run `embed_pdfs.py`
+- Use `sources` to see which curriculum documents were referenced
+- All materials are aligned with Romanian Ministry of Education standards
 
 ## Need Help?
 

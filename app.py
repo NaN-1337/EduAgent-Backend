@@ -14,7 +14,8 @@ from services import (
     PodcastService,
     HomeworkService,
     HomeworkQuestionsService,
-    ChatbotService
+    ChatbotService,
+    QuizService
 )
 from config import Config
 from session_manager import get_session_manager
@@ -37,6 +38,7 @@ try:
     homework_service = HomeworkService()
     homework_questions_service = HomeworkQuestionsService()
     chatbot_service = ChatbotService()
+    quiz_service = QuizService()
     
     # Try to initialize Presenton service (optional)
     try:
@@ -442,6 +444,80 @@ def generate_podcast():
         
     except Exception as e:
         print(f"Error in generate_podcast: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+
+@app.route('/api/generate-quiz', methods=['POST'])
+def generate_quiz():
+    """
+    Generate a single-choice quiz based on lecture content.
+    
+    Expected JSON body:
+    {
+        "student_version": "<h1>Lecture content...</h1>",
+        "num_questions": 10
+    }
+    
+    Returns JSON with generated quiz questions.
+    """
+    try:
+        # Check if quiz service is available
+        if quiz_service is None:
+            return jsonify({
+                "error": "Quiz service is not available"
+            }), 503
+        
+        # Validate request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided"
+            }), 400
+        
+        # Extract and validate parameters
+        student_version = data.get('student_version')
+        num_questions = data.get('num_questions', 10)
+        
+        if not student_version:
+            return jsonify({
+                "error": "Missing required parameter: student_version"
+            }), 400
+        
+        # Validate num_questions
+        try:
+            num_questions = int(num_questions)
+            if num_questions < 1 or num_questions > 50:
+                return jsonify({
+                    "error": "num_questions must be between 1 and 50"
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                "error": "num_questions must be a valid integer"
+            }), 400
+        
+        # Generate quiz
+        print(f"Generating quiz with {num_questions} questions...")
+        quiz_data = quiz_service.generate_quiz(
+            student_version=student_version,
+            num_questions=num_questions
+        )
+        
+        return jsonify({
+            "success": True,
+            "data": quiz_data
+        }), 200
+        
+    except ValueError as e:
+        # Validation errors from the service
+        return jsonify({
+            "error": str(e)
+        }), 400
+    except Exception as e:
+        print(f"Error in generate_quiz: {e}")
         traceback.print_exc()
         return jsonify({
             "error": f"Internal server error: {str(e)}"

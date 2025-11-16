@@ -1481,4 +1481,296 @@ const followUp = await sendMessage("Poți să-mi dai un exemplu?");
 console.log("Chatbot:", followUp.response);
 ```
 
+---
+
+## 8. Generate Quiz Endpoint
+
+**Endpoint:** `POST /api/generate-quiz`
+
+This endpoint generates a single-choice quiz based on lecture content. The AI creates questions that can only be answered using information explicitly stated in the provided content, ensuring alignment with what was taught.
+
+### Request
+
+**URL:** `http://localhost:5000/api/generate-quiz`
+
+**Method:** `POST`
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json"
+}
+```
+
+**Body:**
+```json
+{
+  "student_version": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<h2>Introducere</h2>\n<p>Celula este cea mai mică unitate vie a organismelor...</p>",
+  "num_questions": 10
+}
+```
+
+**Field Descriptions:**
+- `student_version` (string, required): The HTML content from the student version of the lecture (from `/api/generate-lecture`)
+- `num_questions` (int, optional): Number of questions to generate (default: 10, range: 1-50)
+
+**Important**: The quiz questions are generated **only** from information in the `student_version` content. This ensures students can answer all questions based on what they learned.
+
+### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "questions": [
+      {
+        "id": "q1",
+        "text": "Care este cea mai mică unitate vie a organismelor?",
+        "options": [
+          {
+            "id": "a",
+            "text": "Celula"
+          },
+          {
+            "id": "b",
+            "text": "Țesutul"
+          },
+          {
+            "id": "c",
+            "text": "Organul"
+          },
+          {
+            "id": "d",
+            "text": "Sistemul"
+          }
+        ],
+        "correctAnswerId": "a"
+      },
+      {
+        "id": "q2",
+        "text": "Ce componentă celulară conține materialul genetic (ADN)?",
+        "options": [
+          {
+            "id": "a",
+            "text": "Membrana celulară"
+          },
+          {
+            "id": "b",
+            "text": "Citoplasma"
+          },
+          {
+            "id": "c",
+            "text": "Nucleul"
+          },
+          {
+            "id": "d",
+            "text": "Peretele celular"
+          }
+        ],
+        "correctAnswerId": "c"
+      },
+      {
+        "id": "q3",
+        "text": "Ce diferență majoră există între celula animală și cea vegetală?",
+        "options": [
+          {
+            "id": "a",
+            "text": "Celula vegetală nu are nucleu"
+          },
+          {
+            "id": "b",
+            "text": "Celula animală nu are citoplasma"
+          },
+          {
+            "id": "c",
+            "text": "Celula vegetală are perete celular rigid"
+          },
+          {
+            "id": "d",
+            "text": "Celula animală este mai mare"
+          }
+        ],
+        "correctAnswerId": "c"
+      }
+    ]
+  }
+}
+```
+
+**Field Descriptions in Response:**
+- `success` (boolean): Indicates if the request was successful
+- `data.questions` (array): Array of quiz questions
+  - `id` (string): Unique identifier for the question (e.g., "q1", "q2")
+  - `text` (string): The question text in Romanian
+  - `options` (array): Array of 4 answer options
+    - `id` (string): Option identifier (a, b, c, d)
+    - `text` (string): Option text
+  - `correctAnswerId` (string): ID of the correct answer option
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Missing required parameter: student_version"
+}
+```
+
+```json
+{
+  "error": "num_questions must be between 1 and 50"
+}
+```
+
+```json
+{
+  "error": "Student version content is too short to generate meaningful questions"
+}
+```
+
+**Error Response (500 Internal Server Error):**
+```json
+{
+  "error": "Internal server error: Failed to parse quiz from AI response"
+}
+```
+
+**Error Response (503 Service Unavailable):**
+```json
+{
+  "error": "Quiz service is not available"
+}
+```
+
+### cURL Example
+```bash
+curl -X POST http://localhost:5000/api/generate-quiz \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student_version": "<h1>Celula</h1><p>Celula este cea mai mică unitate vie...</p>",
+    "num_questions": 5
+  }'
+```
+
+### Python Example
+```python
+import requests
+
+# Generate quiz from lecture content
+response = requests.post(
+    'http://localhost:5000/api/generate-quiz',
+    json={
+        'student_version': student_html,  # From /api/generate-lecture
+        'num_questions': 10
+    }
+)
+
+if response.status_code == 200:
+    data = response.json()
+    questions = data['data']['questions']
+    
+    print(f"Generated {len(questions)} questions:")
+    for q in questions:
+        print(f"\n{q['text']}")
+        for opt in q['options']:
+            marker = "✓" if opt['id'] == q['correctAnswerId'] else " "
+            print(f"  {marker} {opt['id']}) {opt['text']}")
+else:
+    print(f"Error: {response.json()['error']}")
+```
+
+### JavaScript Fetch Example
+```javascript
+fetch('http://localhost:5000/api/generate-quiz', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    student_version: studentVersionHTML,  // From /api/generate-lecture
+    num_questions: 10
+  })
+})
+  .then(response => response.json())
+  .then(data => {
+    const questions = data.data.questions;
+    
+    // Display quiz in your UI
+    questions.forEach((question, index) => {
+      console.log(`\nQuestion ${index + 1}: ${question.text}`);
+      
+      question.options.forEach(option => {
+        const isCorrect = option.id === question.correctAnswerId;
+        console.log(`  ${option.id}) ${option.text} ${isCorrect ? '✓' : ''}`);
+      });
+    });
+  })
+  .catch(error => console.error('Error:', error));
+```
+
+### Integration Example: Complete Workflow
+```javascript
+// Step 1: Generate lecture
+const lectureResponse = await fetch('/api/generate-lecture', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    title: 'Celula - unitatea structurală și funcțională a vieții',
+    subject: 'biologie',
+    grade: 6,
+    questions: [...],  // From /api/generate-questions
+    answers: {...}
+  })
+});
+
+const lectureData = await lectureResponse.json();
+const studentVersion = lectureData.data.student_version;
+
+// Step 2: Generate quiz from lecture content
+const quizResponse = await fetch('/api/generate-quiz', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    student_version: studentVersion,
+    num_questions: 10
+  })
+});
+
+const quizData = await quizResponse.json();
+const quiz = quizData.data.questions;
+
+// Step 3: Save quiz to Firestore
+await db.collection('quizzes').add({
+  lectureId: 'lecture_xyz789',
+  teacherId: currentTeacherId,
+  title: 'Test: Celula - Structura și funcțiile',
+  subject: 'Biologie',
+  grade: 6,
+  totalQuestions: quiz.length,
+  questions: quiz,
+  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+});
+
+console.log('Quiz generated and saved successfully!');
+```
+
+**Important Notes:**
+
+1. **Content-Based Questions**: The AI only generates questions based on information explicitly stated in `student_version`. This ensures quiz alignment with the lecture content.
+
+2. **Coverage**: The service attempts to distribute questions across the entire lecture content to test comprehensive understanding.
+
+3. **Question Quality**: Questions vary in difficulty, including both basic recall and deeper understanding questions.
+
+4. **Answer Options**: Wrong answers are plausible but clearly incorrect based on the content, requiring careful reading to distinguish.
+
+5. **Processing Time**: Quiz generation typically takes 5-15 seconds depending on content length and number of questions.
+
+6. **Content Length**: The content must be at least 100 characters long. For best results, use complete lecture content with multiple sections.
+
+7. **Question Limits**: You can request 1-50 questions. For shorter lectures (< 500 words), requesting fewer questions (5-10) produces better quality.
+
+8. **Validation**: The service validates the quiz structure to ensure all questions have exactly 4 options and valid correct answer IDs.
+
+---
+
 

@@ -25,6 +25,10 @@ class Config:
     
     # Retrieval Configuration
     TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "8"))
+
+    # Firebase Storage Configuration
+    FIREBASE_SERVICE_ACCOUNT_PATH = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH')
+    FIREBASE_STORAGE_BUCKET = os.getenv('FIREBASE_STORAGE_BUCKET')
     
     @classmethod
     def validate(cls):

@@ -3,11 +3,10 @@ Podcast Service - Generate educational podcasts with dialogue and text-to-speech
 """
 import os
 import json
-import requests
 import subprocess
 import tempfile
 import shutil
-from typing import Dict, List, Tuple
+from typing import Dict, List
 from pathlib import Path
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
@@ -33,7 +32,7 @@ Subject: {subject}
 
 Your task is to create a podcast dialogue between two hosts:
 - Host 1 (Ana): An enthusiastic teacher who explains concepts clearly
-- Host 2 (Mihai): A curious student representative who asks good questions
+- Host 2 (Bianca): A curious student representative who asks good questions
 
 Guidelines:
 1. Create a natural, conversational dialogue in Romanian
@@ -54,7 +53,7 @@ Output the dialogue as a JSON array with this exact format:
             "text": "Bună ziua tuturor! Astăzi vom explora un subiect fascinant..."
         }},
         {{
-            "speaker": "Mihai",
+            "speaker": "Bianca",
             "text": "Salut Ana! Sunt foarte curios să aflu mai multe despre..."
         }}
     ]
@@ -136,7 +135,7 @@ Generate the complete podcast dialogue now in Romanian:"""
         # For Romanian: "nova" (female) and "onyx" (male) tend to handle multilingual content well
         self.voices = {
             "Ana": os.getenv("OPENAI_VOICE_FEMALE", "nova"),     # Female voice - warm, clear
-            "Mihai": os.getenv("OPENAI_VOICE_MALE", "onyx")      # Male voice - deep, authoritative
+            "Bianca": os.getenv("OPENAI_VOICE_MALE", "onyx")      # Male voice - deep, authoritative
         }
         
         # Use tts-1-hd for higher quality (better for Romanian pronunciation)
@@ -248,8 +247,11 @@ Generate the complete podcast dialogue now in Romanian:"""
         grade: int,
         subject: str,
         target_duration: int = 300,
-        silence_between_turns: int = 500  # milliseconds
-    ) -> Tuple[bytes, List[Dict]]:
+        silence_between_turns: int = 500,  # milliseconds
+        teacher_id: str = None,
+        lecture_id: str = None,
+        upload_to_firebase: bool = False
+    ) -> Dict:
         """
         Create a complete podcast from lecture content.
         
@@ -260,9 +262,19 @@ Generate the complete podcast dialogue now in Romanian:"""
             subject: Subject name
             target_duration: Target duration in seconds
             silence_between_turns: Silence duration between speakers in ms
+            teacher_id: Teacher ID for Firebase path (required if upload_to_firebase=True)
+            lecture_id: Lecture ID for Firebase path (required if upload_to_firebase=True)
+            upload_to_firebase: If True, upload to Firebase Storage instead of local save
             
         Returns:
-            Tuple of (final_audio_bytes, dialogue_data)
+            Dictionary with audio_bytes, dialogue, and optional firebase_info:
+            {
+                'audio_bytes': bytes,
+                'dialogue': List[Dict],
+                'duration_seconds': float,
+                'size_bytes': int,
+                'firebase_info': Dict (if uploaded to Firebase)
+            }
         """
         # Step 1: Generate dialogue
         dialogue = self.generate_dialogue(
@@ -365,7 +377,57 @@ Generate the complete podcast dialogue now in Romanian:"""
             print(f"  Size: {len(final_audio_bytes) / 1024 / 1024:.2f} MB")
             print(f"  Turns: {len(dialogue)}")
             
-            return final_audio_bytes, dialogue
+            result = {
+                'audio_bytes': final_audio_bytes,
+                'dialogue': dialogue,
+                'duration_seconds': duration_seconds,
+                'size_bytes': len(final_audio_bytes)
+            }
+            
+            # Upload to Firebase if requested
+            if upload_to_firebase:
+                if not teacher_id or not lecture_id:
+                    raise ValueError("teacher_id and lecture_id are required when upload_to_firebase=True")
+                
+                from firebase_service import FirebaseService
+                
+                if not FirebaseService.is_available():
+                    raise Exception("Firebase Storage is not available. Please configure Firebase credentials.")
+                
+                # Generate filename with timestamp
+                import datetime
+                timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"podcast_{timestamp}.mp3"
+                
+                # Construct Firebase Storage path: {teacherID}/{grade}/{lectureID}/podcast_{timestamp}.mp3
+                firebase_path = f"{teacher_id}/{grade}/{lecture_id}/{filename}"
+                
+                print(f"\nUploading to Firebase Storage: {firebase_path}")
+                
+                # Prepare metadata
+                metadata = {
+                    'subject': subject,
+                    'grade': str(grade),
+                    'teacher_id': teacher_id,
+                    'lecture_id': lecture_id,
+                    'duration_seconds': str(duration_seconds),
+                    'turns_count': str(len(dialogue)),
+                    'generated_at': timestamp
+                }
+                
+                # Upload bytes directly to Firebase (no local save)
+                firebase_info = FirebaseService.upload_bytes(
+                    file_bytes=final_audio_bytes,
+                    destination_path=firebase_path,
+                    content_type='audio/mpeg',
+                    make_public=True,  # Make publicly accessible
+                    metadata=metadata
+                )
+                
+                result['firebase_info'] = firebase_info
+                print(f"✓ Podcast uploaded to Firebase successfully")
+            
+            return result
 
 
 if __name__ == "__main__":

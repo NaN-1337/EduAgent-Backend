@@ -33,7 +33,7 @@ The podcast generation feature creates educational audio content from lecture ma
 - **Format**: JSON array with speaker/text pairs
 - **Characters**:
   - **Ana** (teacher): Female voice, explains concepts
-  - **Mihai** (student): Male voice, asks questions
+  - **Bianca** (student): Male voice, asks questions
 - **Duration Control**: ~150 words/minute for natural pacing
 - **Content**: Age-appropriate dialogue based on grade level
 
@@ -43,7 +43,7 @@ The podcast generation feature creates educational audio content from lecture ma
 - **Authentication**: `x-api-key` header
 - **Voices**:
   - Female (Ana): Configurable via `ASYNC_AI_VOICE_FEMALE`
-  - Male (Mihai): Configurable via `ASYNC_AI_VOICE_MALE`
+  - Male (Bianca): Configurable via `ASYNC_AI_VOICE_MALE`
 - **Output Format**: MP3, 44.1kHz sample rate
 
 ### Audio Processing
@@ -82,10 +82,10 @@ Content-Type: application/json
     "dialogue": [
       {
         "speaker": "Ana",
-        "text": "Bună, Mihai! Astăzi vom învăța despre..."
+        "text": "Bună, Bianca! Astăzi vom învăța despre..."
       },
       {
-        "speaker": "Mihai",
+        "speaker": "Bianca",
         "text": "Bună, Ana! Da, sunt foarte curios..."
       }
     ],
@@ -118,7 +118,7 @@ ASYNC_AI_API_KEY=sk-...
 Optional:
 ```env
 ASYNC_AI_VOICE_FEMALE=ana
-ASYNC_AI_VOICE_MALE=mihai
+ASYNC_AI_VOICE_MALE=Bianca
 ```
 
 ### Service Initialization
@@ -139,12 +139,12 @@ except Exception as e:
 1. **Receive Request**: Student version + teacher version + metadata
 2. **Extract Content**: Parse HTML to extract text content
 3. **Generate Dialogue**: 
-   - Use GPT-4o to create conversation between Ana and Mihai
+   - Use GPT-4o to create conversation between Ana and Bianca
    - Target specific duration based on `target_duration`
    - Format as JSON with speaker/text pairs
 4. **Convert to Speech**:
    - For each dialogue turn:
-     - Determine speaker (Ana or Mihai)
+     - Determine speaker (Ana or Bianca)
      - Call Async.ai TTS API with appropriate voice
      - Receive MP3 audio bytes
      - Save to temporary file (turn_001.mp3, turn_002.mp3, etc.)

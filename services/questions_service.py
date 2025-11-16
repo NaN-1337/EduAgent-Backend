@@ -1,7 +1,7 @@
 """
 Questions Service - Generate clarifying questions for lecture preparation.
 """
-from typing import Dict, List
+from typing import Dict
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import PromptTemplate
 from config import Config

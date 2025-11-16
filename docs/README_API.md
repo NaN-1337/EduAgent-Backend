@@ -73,7 +73,7 @@ Generates a PowerPoint presentation from the student lecture content using Prese
 ### 4. Generate Podcast
 `POST /api/generate-podcast`
 
-Generates an educational podcast from lecture content with AI-powered dialogue between Ana (teacher) and Mihai (student), converted to natural-sounding speech using Async.ai TTS.
+Generates an educational podcast from lecture content with AI-powered dialogue between Ana (teacher) and Bianca (student), converted to natural-sounding speech using Async.ai TTS.
 
 **Request:**
 ```json
@@ -214,7 +214,7 @@ Available voices: `alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`
 
 Recommended for Romanian:
 - **Female (Ana)**: `nova` - warm, clear voice
-- **Male (Mihai)**: `onyx` - deep, authoritative voice
+- **Male (Bianca)**: `onyx` - deep, authoritative voice
 
 To customize, add to your `.env` file:
 ```env

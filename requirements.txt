@@ -25,3 +25,6 @@ requests>=2.32.0
 # Flask backend
 flask>=3.0.0
 flask-cors>=4.0.0
+
+# Firebase
+firebase-admin>=6.0.0

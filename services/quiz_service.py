@@ -26,6 +26,7 @@ IMPORTANT RULES:
 8. Vary the difficulty - include both basic recall and deeper understanding questions
 9. Make sure each question is clear, unambiguous, and directly answerable from the content
 10. Wrong answers should not be obviously wrong - they should require careful reading to distinguish
+11. **CRITICAL**: VARY the correct answer position! Do NOT make all correct answers "a" or any single letter. Distribute correct answers randomly across a, b, c, and d. For example, if you have 10 questions, aim for roughly 2-3 correct answers at each position (a, b, c, d).
 
 Lecture Content:
 {content}

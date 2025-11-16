@@ -9,6 +9,7 @@ import traceback
 
 from questions_service import QuestionsService
 from lecture_service import LectureService
+from presenton_service import PresentonService
 from config import Config
 
 # Initialize Flask app
@@ -20,7 +21,16 @@ print("Initializing services...")
 try:
     questions_service = QuestionsService()
     lecture_service = LectureService()
-    print("✓ Services initialized successfully")
+    
+    # Try to initialize Presenton service (optional)
+    try:
+        presenton_service = PresentonService()
+        print("✓ Presenton service initialized successfully")
+    except ValueError as e:
+        presenton_service = None
+        print(f"⚠ Presenton service not available: {e}")
+    
+    print("✓ Core services initialized successfully")
 except Exception as e:
     print(f"❌ Error initializing services: {e}")
     raise
@@ -188,6 +198,97 @@ def generate_lecture():
         
     except Exception as e:
         print(f"Error in generate_lecture: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+
+@app.route('/api/generate-presentation', methods=['POST'])
+def generate_presentation():
+    """
+    Generate a PowerPoint presentation from student lecture content using Presenton API.
+    
+    Expected JSON body:
+    {
+        "student_version": "<h1>Celula...</h1><p>Content...</p>",
+        "n_slides": 8,
+        "language": "Romanian",
+        "template": "general",
+        "tone": "educational"
+    }
+    
+    Returns JSON with presentation download URL, edit URL, and parsed slides data.
+    """
+    try:
+        # Check if Presenton service is available
+        if presenton_service is None:
+            return jsonify({
+                "error": "Presenton service not configured. Please add PRESENTON_API_KEY to your .env file."
+            }), 503
+        
+        # Validate request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided"
+            }), 400
+        
+        # Extract and validate parameters
+        student_version = data.get('student_version')
+        
+        if not student_version:
+            return jsonify({
+                "error": "Missing required parameter: student_version is required"
+            }), 400
+        
+        # Optional parameters with defaults
+        n_slides = data.get('n_slides', 8)
+        language = data.get('language', 'Romanian')
+        template = data.get('template', 'general')
+        tone = data.get('tone', 'educational')
+        verbosity = data.get('verbosity', 'standard')
+        export_as = data.get('export_as', 'pptx')
+        image_type = data.get('image_type', 'stock')
+        theme = data.get('theme')
+        
+        # Validate n_slides
+        try:
+            n_slides = int(n_slides)
+            if n_slides < 1 or n_slides > 50:
+                return jsonify({
+                    "error": "n_slides must be between 1 and 50"
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                "error": "n_slides must be a valid integer"
+            }), 400
+        
+        # Generate presentation with slides data
+        result = presenton_service.generate_and_get_slides(
+            content=student_version,
+            n_slides=n_slides,
+            language=language,
+            template=template,
+            tone=tone,
+            verbosity=verbosity,
+            export_as=export_as,
+            image_type=image_type,
+            theme=theme
+        )
+        
+        # Return response
+        return jsonify({
+            "success": True,
+            "data": {
+                "presentation": result["presentation"],
+                "slides": result["slides"]
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in generate_presentation: {e}")
         traceback.print_exc()
         return jsonify({
             "error": f"Internal server error: {str(e)}"

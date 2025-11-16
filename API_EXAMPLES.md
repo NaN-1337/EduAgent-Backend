@@ -441,6 +441,288 @@ async function generateLecture(title, subject, grade, questions, answers) {
 
 ---
 
+## 3. Generate Presentation Endpoint
+
+**Endpoint:** `POST /api/generate-presentation`
+
+This endpoint takes the student version content from the lecture generation endpoint and uses the Presenton API to create a PowerPoint presentation. It returns both the presentation file URL and the parsed content of each slide.
+
+### Request
+
+**URL:** `http://localhost:5000/api/generate-presentation`
+
+**Method:** `POST`
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json"
+}
+```
+
+**Body:**
+```json
+{
+  "student_version": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<h2>Introducere</h2>\n<p>Celula este cea mai mică unitate vie a organismelor. Toate ființele vii sunt alcătuite din una sau mai multe celule...</p>\n\n<h2>Structura celulei</h2>\n<p>Fiecare celulă este formată din mai multe componente importante...</p>",
+  "n_slides": 8,
+  "language": "Romanian",
+  "template": "general",
+  "tone": "educational",
+  "verbosity": "standard",
+  "export_as": "pptx",
+  "image_type": "stock"
+}
+```
+
+**Field Descriptions:**
+- `student_version` (string, required): The HTML content from `/api/generate-lecture` endpoint
+- `n_slides` (int, optional): Number of slides to generate (default: 8, range: 1-50)
+- `language` (string, optional): Language for the presentation (default: "Romanian")
+- `template` (string, optional): Template to use - options: "general", "modern", "standard", "swift" (default: "general")
+- `tone` (string, optional): Tone for text - options: "default", "casual", "professional", "funny", "educational", "sales_pitch" (default: "educational")
+- `verbosity` (string, optional): Text verbosity - options: "concise", "standard", "text-heavy" (default: "standard")
+- `export_as` (string, optional): Export format - options: "pptx", "pdf" (default: "pptx")
+- `image_type` (string, optional): Image type - options: "stock", "ai-generated" (default: "stock")
+- `theme` (string, optional): Custom theme name (e.g., "edge-yellow", "light-rose", "mint-blue", "professional-blue", "professional-dark")
+
+### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "presentation": {
+      "id": "d3000f96-096c-4768-b67b-e99aed029b57",
+      "download_url": "https://api.presenton.ai/static/user_data/d3000f96-096c-4768-b67b-e99aed029b57/Celula.pptx",
+      "edit_url": "https://presenton.ai/presentation?id=d3000f96-096c-4768-b67b-e99aed029b57",
+      "credits_consumed": 8,
+      "n_slides": 8,
+      "language": "Romanian",
+      "title": "Celula - unitatea structurală și funcțională a vieții"
+    },
+    "slides": [
+      {
+        "slide_index": 0,
+        "layout": "title",
+        "html_content": "<div class=\"slide-title\"><h1>Celula - unitatea structurală și funcțională a vieții</h1></div>",
+        "speaker_note": "Slide de introducere pentru lecția despre celulă",
+        "content": {
+          "title": "Celula - unitatea structurală și funcțională a vieții",
+          "subtitle": "Biologie - Clasa a 6-a"
+        }
+      },
+      {
+        "slide_index": 1,
+        "layout": "content",
+        "html_content": "<div class=\"slide-content\"><h2>Introducere</h2><p>Celula este cea mai mică unitate vie a organismelor...</p></div>",
+        "speaker_note": "Explicați conceptul de celulă ca unitate fundamentală a vieții",
+        "content": {
+          "title": "Introducere",
+          "body": "Celula este cea mai mică unitate vie a organismelor. Toate ființele vii sunt alcătuite din una sau mai multe celule.",
+          "bullets": [
+            "Celula = unitatea structurală",
+            "Procesele vitale la nivel celular",
+            "Toate organismele sunt formate din celule"
+          ]
+        }
+      },
+      {
+        "slide_index": 2,
+        "layout": "content",
+        "html_content": "<div class=\"slide-content\"><h2>Structura celulei</h2><ul><li>Membrana celulară</li><li>Citoplasma</li><li>Nucleul</li></ul></div>",
+        "speaker_note": "Prezentați cele trei componente principale ale celulei",
+        "content": {
+          "title": "Structura celulei",
+          "body": "Fiecare celulă este formată din mai multe componente importante",
+          "bullets": [
+            "Membrana celulară - învelișul protector",
+            "Citoplasma - substanța gelatinoasă",
+            "Nucleul - centrul de comandă cu ADN"
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+**Field Descriptions in Response:**
+- `success` (boolean): Indicates if the request was successful
+- `data.presentation`: Object containing presentation metadata
+  - `id`: UUID of the generated presentation
+  - `download_url`: Direct download link for the .pptx or .pdf file
+  - `edit_url`: Link to edit the presentation in Presenton's web interface
+  - `credits_consumed`: Number of Presenton API credits used
+  - `n_slides`: Total number of slides in the presentation
+  - `language`: Language of the presentation
+  - `title`: Title of the presentation
+- `data.slides`: Array of parsed slide objects
+  - `slide_index`: Position of the slide (0-indexed)
+  - `layout`: Layout type of the slide (e.g., "title", "content", "two-column")
+  - `html_content`: HTML representation of the slide content
+  - `speaker_note`: Speaker notes for the slide
+  - `content`: Structured content object with slide details (title, body, bullets, etc.)
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Missing required parameter: student_version is required"
+}
+```
+
+**Error Response (503 Service Unavailable):**
+```json
+{
+  "error": "Presenton service not configured. Please add PRESENTON_API_KEY to your .env file."
+}
+```
+
+**Error Response (500 Internal Server Error):**
+```json
+{
+  "error": "Internal server error: [error details]"
+}
+```
+
+### cURL Example
+```bash
+curl -X POST http://localhost:5000/api/generate-presentation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student_version": "<h1>Celula - unitatea structurală și funcțională a vieții</h1><h2>Introducere</h2><p>Celula este cea mai mică unitate vie...</p>",
+    "n_slides": 8,
+    "language": "Romanian",
+    "tone": "educational"
+  }'
+```
+
+### JavaScript Fetch Example
+```javascript
+fetch('http://localhost:5000/api/generate-presentation', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    student_version: studentVersionHTML,  // From previous endpoint
+    n_slides: 8,
+    language: 'Romanian',
+    template: 'modern',
+    tone: 'educational',
+    verbosity: 'standard',
+    export_as: 'pptx'
+  })
+})
+  .then(response => response.json())
+  .then(data => {
+    const downloadUrl = data.data.presentation.download_url;
+    const editUrl = data.data.presentation.edit_url;
+    const slides = data.data.slides;
+    
+    // Download the presentation
+    window.open(downloadUrl, '_blank');
+    
+    // Or display slide previews in your UI
+    slides.forEach(slide => {
+      console.log(`Slide ${slide.slide_index}: ${slide.content.title}`);
+    });
+  })
+  .catch(error => console.error('Error:', error));
+```
+
+---
+
+## Complete Workflow Example (All 3 Endpoints)
+
+Here's a complete workflow showing how to use all three endpoints together:
+
+### Step 1: Generate Questions
+```javascript
+// Step 1: Get clarifying questions
+const questionsResponse = await fetch('http://localhost:5000/api/generate-questions', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    title: 'Celula - unitatea structurală și funcțională a vieții',
+    subject: 'Biologie',
+    grade: 6
+  })
+});
+
+const questionsData = await questionsResponse.json();
+const questions = questionsData.data.questions;
+
+// Display questions to teacher in UI and collect answers
+// ... (UI interaction) ...
+```
+
+### Step 2: Generate Lecture with Answers
+```javascript
+// Step 2: Generate lecture with collected answers
+const answers = {
+  '1': 'Introducerea conceptelor noi',
+  '2': '50 minute (o oră)',
+  '3': 'Da',
+  '4': 'Activități practice și experimente'
+};
+
+const lectureResponse = await fetch('http://localhost:5000/api/generate-lecture', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    title: 'Celula - unitatea structurală și funcțională a vieții',
+    subject: 'biologie',
+    grade: 6,
+    questions: questions,
+    answers: answers
+  })
+});
+
+const lectureData = await lectureResponse.json();
+const studentVersion = lectureData.data.student_version;
+const teacherVersion = lectureData.data.teacher_version;
+```
+
+### Step 3: Generate PowerPoint Presentation
+```javascript
+// Step 3: Generate PowerPoint from student version
+const presentationResponse = await fetch('http://localhost:5000/api/generate-presentation', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    student_version: studentVersion,  // From Step 2
+    n_slides: 10,
+    language: 'Romanian',
+    template: 'modern',
+    tone: 'educational'
+  })
+});
+
+const presentationData = await presentationResponse.json();
+const presentation = presentationData.data.presentation;
+const slides = presentationData.data.slides;
+
+// Provide download link to teacher
+const downloadLink = presentation.download_url;
+const editLink = presentation.edit_url;
+
+// Display presentation info
+console.log(`Presentation created with ${presentation.n_slides} slides`);
+console.log(`Credits used: ${presentation.credits_consumed}`);
+console.log(`Download: ${downloadLink}`);
+console.log(`Edit online: ${editLink}`);
+
+// Display slide previews
+slides.forEach((slide, index) => {
+  console.log(`\nSlide ${index + 1}:`);
+  console.log(`  Layout: ${slide.layout}`);
+  console.log(`  Content:`, slide.content);
+});
+```
+
+---
+
 ## Health Check Endpoint
 
 **Endpoint:** `GET /api/health`
@@ -464,7 +746,7 @@ curl http://localhost:5000/api/health
 
 ## Notes for Frontend Developers
 
-1. **Subject field**: In the second endpoint, the `subject` field must match the metadata in the vector store. Typically this is lowercase (e.g., "biologie", "matematică", "fizică").
+1. **Subject field**: In the lecture generation endpoint, the `subject` field must match the metadata in the vector store. Typically this is lowercase (e.g., "biologie", "matematică", "fizică").
 
 2. **HTML rendering**: Both `student_version` and `teacher_version` contain HTML. You can render them directly using `innerHTML` or use a sanitization library if you prefer additional security.
 
@@ -484,8 +766,24 @@ curl http://localhost:5000/api/health
    }
    ```
 
-4. **Loading states**: Both endpoints may take 5-15 seconds to generate responses (they're calling AI models). Make sure to show loading indicators in your UI.
+4. **Loading states**: 
+   - Questions endpoint: ~5-10 seconds
+   - Lecture endpoint: ~10-20 seconds
+   - Presentation endpoint: ~30-60 seconds (Presenton API generates the slides)
+   - Make sure to show loading indicators in your UI
 
 5. **Answer format**: When a user selects "Altele" (Other) as an answer, they should be able to provide free-text input. Pass this custom text as the answer value.
 
-6. **CORS**: The API has CORS enabled for all origins. In production, you may want to restrict this to your frontend domain.
+6. **Presenton API Key**: The presentation endpoint requires a Presenton API key in the `.env` file. Get your key from [presenton.ai/account](https://presenton.ai/account). If the key is not configured, the endpoint will return a 503 error.
+
+7. **Presentation files**: The `download_url` in the response is a direct link to the generated .pptx or .pdf file. You can either:
+   - Open it in a new tab: `window.open(downloadUrl, '_blank')`
+   - Create a download link: `<a href="${downloadUrl}" download>Download Presentation</a>`
+   - Use the `edit_url` to allow teachers to edit the presentation online before downloading
+
+8. **Slide data**: The `slides` array contains parsed content for each slide. You can use this to:
+   - Show slide previews in your UI
+   - Display slide count and structure before downloading
+   - Create a custom slide editor if needed
+
+9. **CORS**: The API has CORS enabled for all origins. In production, you may want to restrict this to your frontend domain.

@@ -7,8 +7,17 @@ from flask_cors import CORS
 import traceback
 
 from firebase_service import FirebaseService
-from services import QuestionsService, LectureService, PresentonService, PodcastService
+from services import (
+    QuestionsService,
+    LectureService,
+    PresentonService,
+    PodcastService,
+    HomeworkService,
+    HomeworkQuestionsService,
+    ChatbotService
+)
 from config import Config
+from session_manager import get_session_manager
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -17,11 +26,17 @@ CORS(app)  # Enable CORS for frontend communication
 # Initialize Firebase Storage at startup
 FirebaseService.initialize()
 
+# Initialize session manager
+session_manager = get_session_manager()
+
 # Initialize services
 print("Initializing services...")
 try:
     questions_service = QuestionsService()
     lecture_service = LectureService()
+    homework_service = HomeworkService()
+    homework_questions_service = HomeworkQuestionsService()
+    chatbot_service = ChatbotService()
     
     # Try to initialize Presenton service (optional)
     try:
@@ -427,6 +442,344 @@ def generate_podcast():
         
     except Exception as e:
         print(f"Error in generate_podcast: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+
+@app.route('/api/generate-homework-questions', methods=['POST'])
+def generate_homework_questions():
+    """
+    Generate clarifying questions for homework preparation.
+    
+    Expected JSON body:
+    {
+        "lesson_content": "<h1>Celula...</h1><p>Content...</p>",
+        "num_exercises": 5,
+        "subject": "Biologie",
+        "grade": 6
+    }
+    
+    Returns JSON with generated questions and response options.
+    """
+    try:
+        # Validate request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided"
+            }), 400
+        
+        # Extract and validate parameters
+        lesson_content = data.get('lesson_content')
+        num_exercises = data.get('num_exercises')
+        subject = data.get('subject')
+        grade = data.get('grade')
+        
+        if not lesson_content or not num_exercises or not subject or grade is None:
+            return jsonify({
+                "error": "Missing required parameters: lesson_content, num_exercises, subject, and grade are required"
+            }), 400
+        
+        # Validate num_exercises
+        try:
+            num_exercises = int(num_exercises)
+            if num_exercises < 1 or num_exercises > 20:
+                return jsonify({
+                    "error": "num_exercises must be between 1 and 20"
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                "error": "num_exercises must be a valid integer"
+            }), 400
+        
+        # Validate grade
+        try:
+            grade = int(grade)
+            if grade < 1 or grade > 12:
+                return jsonify({
+                    "error": "Grade must be between 1 and 12"
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                "error": "Grade must be a valid integer"
+            }), 400
+        
+        # Generate questions
+        result = homework_questions_service.generate_questions(
+            lesson_content=lesson_content,
+            num_exercises=num_exercises,
+            subject=subject,
+            grade=grade
+        )
+        
+        # Return response
+        return jsonify({
+            "success": True,
+            "data": result
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in generate_homework_questions: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+
+@app.route('/api/generate-homework', methods=['POST'])
+def generate_homework():
+    """
+    Generate homework exercises from lesson content using RAG.
+    
+    Expected JSON body:
+    {
+        "lesson_content": "<h1>Celula...</h1><p>Content...</p>",
+        "num_exercises": 5,
+        "subject": "biologie",
+        "grade": 6,
+        "questions": [
+            {
+                "id": 1,
+                "question": "Ce nivel de dificultate ar trebui să aibă exercițiile?",
+                "type": "single-choice",
+                "options": ["...", "..."]
+            }
+        ],
+        "answers": {
+            "1": "Mediu - aplicare și înțelegere",
+            "2": "Combinație de tipuri"
+        }
+    }
+    
+    Returns JSON with homework exercises in HTML format.
+    """
+    try:
+        # Validate request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided"
+            }), 400
+        
+        # Extract and validate parameters
+        lesson_content = data.get('lesson_content')
+        num_exercises = data.get('num_exercises')
+        subject = data.get('subject')
+        grade = data.get('grade')
+        questions = data.get('questions')
+        answers = data.get('answers')
+        
+        if not lesson_content or not num_exercises or not subject or grade is None or not questions or not answers:
+            return jsonify({
+                "error": "Missing required parameters: lesson_content, num_exercises, subject, grade, questions, and answers are required"
+            }), 400
+        
+        # Validate num_exercises
+        try:
+            num_exercises = int(num_exercises)
+            if num_exercises < 1 or num_exercises > 20:
+                return jsonify({
+                    "error": "num_exercises must be between 1 and 20"
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                "error": "num_exercises must be a valid integer"
+            }), 400
+        
+        # Validate grade
+        try:
+            grade = int(grade)
+            if grade < 1 or grade > 12:
+                return jsonify({
+                    "error": "Grade must be between 1 and 12"
+                }), 400
+        except (TypeError, ValueError):
+            return jsonify({
+                "error": "Grade must be a valid integer"
+            }), 400
+        
+        # Validate questions is a list
+        if not isinstance(questions, list):
+            return jsonify({
+                "error": "Questions must be a list"
+            }), 400
+        
+        # Validate answers is a dictionary
+        if not isinstance(answers, dict):
+            return jsonify({
+                "error": "Answers must be a dictionary mapping question IDs to answers"
+            }), 400
+        
+        # Generate homework
+        result = homework_service.generate_homework(
+            lesson_content=lesson_content,
+            num_exercises=num_exercises,
+            subject=subject,
+            grade=grade,
+            questions=questions,
+            answers=answers
+        )
+        
+        # Return response
+        return jsonify({
+            "success": True,
+            "data": {
+                "homework": result["homework"]
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"Error in generate_homework: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+
+@app.route('/api/chat', methods=['POST'])
+def chat():
+    """
+    Educational chatbot with role-based adaptation (student or individual).
+    Maintains session-based conversation history (not persisted).
+    
+    Expected JSON body for NEW session:
+    {
+        "lesson_content": "<h1>Celula...</h1><p>Content...</p>",
+        "user_prompt": "Ce este citoplasma?",
+        "subject": "Biologie",
+        "user_role": "student",  // or "individual"
+        "grade": 6  // required if user_role is "student"
+    }
+    
+    Expected JSON body for EXISTING session:
+    {
+        "session_id": "uuid-string",
+        "user_prompt": "Poți să-mi dai un exemplu?"
+    }
+    
+    Returns JSON with chatbot response and session information.
+    """
+    try:
+        # Validate request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided"
+            }), 400
+        
+        user_prompt = data.get('user_prompt')
+        session_id = data.get('session_id')
+        
+        if not user_prompt:
+            return jsonify({
+                "error": "Missing required parameter: user_prompt is required"
+            }), 400
+        
+        # Determine if this is a new session or continuing an existing one
+        if session_id:
+            # Continue existing session
+            session = session_manager.get_session(session_id)
+            
+            if session is None:
+                return jsonify({
+                    "error": "Session not found or expired. Please create a new session."
+                }), 404
+            
+            lesson_content = session["lesson_content"]
+            subject = session["subject"]
+            user_role = session["user_role"]
+            grade = session["grade"]
+            conversation_history = session["conversation_history"]
+            
+        else:
+            # Create new session
+            lesson_content = data.get('lesson_content')
+            subject = data.get('subject')
+            user_role = data.get('user_role')
+            grade = data.get('grade')
+            
+            if not lesson_content or not subject or not user_role:
+                return jsonify({
+                    "error": "Missing required parameters for new session: lesson_content, subject, and user_role are required"
+                }), 400
+            
+            # Validate user_role
+            if user_role not in ["student", "individual"]:
+                return jsonify({
+                    "error": "user_role must be either 'student' or 'individual'"
+                }), 400
+            
+            # Validate grade for students
+            if user_role == "student":
+                if grade is None:
+                    return jsonify({
+                        "error": "grade is required when user_role is 'student'"
+                    }), 400
+                
+                try:
+                    grade = int(grade)
+                    if grade < 1 or grade > 12:
+                        return jsonify({
+                            "error": "grade must be between 1 and 12"
+                        }), 400
+                except (TypeError, ValueError):
+                    return jsonify({
+                        "error": "grade must be a valid integer"
+                    }), 400
+            
+            # Create new session
+            session_id = session_manager.create_session(
+                lesson_content=lesson_content,
+                subject=subject,
+                user_role=user_role,
+                grade=grade
+            )
+            conversation_history = []
+        
+        # Generate chatbot response
+        print(f"Chat request: session={session_id}, subject={subject}, role={user_role}, grade={grade}")
+        result = chatbot_service.chat(
+            user_prompt=user_prompt,
+            lesson_content=lesson_content,
+            subject=subject,
+            user_role=user_role,
+            grade=grade,
+            conversation_history=conversation_history
+        )
+        
+        # Update session with new conversation history
+        session_manager.update_session(session_id, result["conversation_history"])
+        
+        # Clean up expired sessions periodically
+        if session_id and len(session_id) % 10 == 0:  # Every 10th request
+            expired_count = session_manager.cleanup_expired_sessions()
+            if expired_count > 0:
+                print(f"Cleaned up {expired_count} expired sessions")
+        
+        # Return response
+        return jsonify({
+            "success": True,
+            "data": {
+                "session_id": session_id,
+                "response": result["response"],
+                "user_role": user_role,
+                "grade": grade,
+                "message_count": len(result["conversation_history"])
+            }
+        }), 200
+        
+    except ValueError as e:
+        print(f"Validation error in chat: {e}")
+        return jsonify({
+            "error": str(e)
+        }), 400
+    except Exception as e:
+        print(f"Error in chat: {e}")
         traceback.print_exc()
         return jsonify({
             "error": f"Internal server error: {str(e)}"

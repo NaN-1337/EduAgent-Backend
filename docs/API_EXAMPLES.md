@@ -1052,3 +1052,433 @@ fetch('http://localhost:5000/api/generate-podcast', {
 
 8. **Error Handling**: The endpoint includes graceful error handling. If Firebase is not configured but `upload_to_firebase=true`, it will return a clear error message rather than failing silently.
 
+---
+
+## 5. Generate Homework Questions Endpoint
+
+**Endpoint:** `POST /api/generate-homework-questions`
+
+This endpoint generates clarifying questions that help gather information for creating appropriate homework exercises based on lesson content.
+
+### Request
+
+**URL:** `http://localhost:5000/api/generate-homework-questions`
+
+**Method:** `POST`
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json"
+}
+```
+
+**Body:**
+```json
+{
+  "lesson_content": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<h2>Introducere</h2>\n<p>Celula este cea mai mică unitate structurală și funcțională a vieții...</p>",
+  "num_exercises": 5,
+  "subject": "Biologie",
+  "grade": 6
+}
+```
+
+**Field Descriptions:**
+- `lesson_content` (string, required): The lesson content in HTML or plain text format
+- `num_exercises` (int, required): Number of homework exercises to generate (1-20)
+- `subject` (string, required): Subject name (e.g., "Matematică", "Biologie")
+- `grade` (int, required): Grade level (1-12)
+
+### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "questions": [
+      {
+        "id": 1,
+        "question": "Ce nivel de dificultate ar trebui să aibă exercițiile?",
+        "type": "single-choice",
+        "options": [
+          "Ușor - consolidare concepte de bază",
+          "Mediu - aplicare și înțelegere",
+          "Dificil - analiză și sinteză",
+          "Mixt - combinație de niveluri",
+          "Altele"
+        ]
+      },
+      {
+        "id": 2,
+        "question": "Ce tipuri de exerciții preferați?",
+        "type": "multiple-choice",
+        "options": [
+          "Întrebări cu alegere multiplă",
+          "Întrebări cu răspuns scurt",
+          "Probleme de rezolvat",
+          "Exerciții de aplicare practică",
+          "Sarcini creative/proiecte",
+          "Altele"
+        ]
+      },
+      {
+        "id": 3,
+        "question": "Cât timp ar trebui să aloce elevii pentru această temă?",
+        "type": "single-choice",
+        "options": [
+          "15-20 minute",
+          "30-40 minute",
+          "50-60 minute",
+          "Peste o oră",
+          "Altele"
+        ]
+      },
+      {
+        "id": 4,
+        "question": "Ar trebui să includem indicii sau ghidaj pentru exerciții?",
+        "type": "yes-no",
+        "options": [
+          "Da",
+          "Nu"
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Missing required parameters: lesson_content, num_exercises, subject, and grade are required"
+}
+```
+
+---
+
+## 6. Generate Homework Endpoint
+
+**Endpoint:** `POST /api/generate-homework`
+
+This endpoint generates homework exercises based on lesson content using RAG (Retrieval-Augmented Generation) with curriculum context.
+
+### Request
+
+**URL:** `http://localhost:5000/api/generate-homework`
+
+**Method:** `POST`
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json"
+}
+```
+
+**Body:**
+```json
+{
+  "lesson_content": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<h2>Introducere</h2>\n<p>Celula este cea mai mică unitate structurală și funcțională a vieții. Toate organismele vii sunt formate din una sau mai multe celule...</p>\n\n<h2>Structura celulei</h2>\n<p>Celula are mai multe părți importante: membrana celulară, citoplasma și nucleul...</p>",
+  "num_exercises": 5,
+  "subject": "biologie",
+  "grade": 6,
+  "questions": [
+    {
+      "id": 1,
+      "question": "Ce nivel de dificultate ar trebui să aibă exercițiile?",
+      "type": "single-choice",
+      "options": ["Ușor", "Mediu", "Dificil", "Mixt", "Altele"]
+    },
+    {
+      "id": 2,
+      "question": "Ce tipuri de exerciții preferați?",
+      "type": "multiple-choice",
+      "options": ["Întrebări cu alegere multiplă", "Întrebări cu răspuns scurt", "Probleme de rezolvat", "Altele"]
+    }
+  ],
+  "answers": {
+    "1": "Mediu - aplicare și înțelegere",
+    "2": "Combinație de tipuri"
+  }
+}
+```
+
+**Field Descriptions:**
+- `lesson_content` (string, required): The lesson content in HTML or plain text format
+- `num_exercises` (int, required): Number of homework exercises to generate (1-20)
+- `subject` (string, required): Subject name (lowercase, e.g., "biologie", "matematică")
+- `grade` (int, required): Grade level (1-12)
+- `questions` (array, required): Array of question objects from homework questions endpoint
+- `answers` (object, required): Dictionary mapping question IDs to selected answers
+
+### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "homework": "<h1>Temă pentru acasă - Biologie</h1>\n\n<h2>Celula - unitatea structurală și funcțională a vieții</h2>\n\n<div class=\"exercise\">\n  <div class=\"exercise-header\">\n    <span class=\"exercise-number\">Exercițiul 1</span>\n    <span class=\"points\">(10 puncte)</span>\n  </div>\n  <div class=\"exercise-content\">\n    <p>Alege varianta corectă. Care dintre următoarele afirmații despre celulă este adevărată?</p>\n    <ul>\n      <li>a) Celula este cea mai mare unitate structurală a vieții</li>\n      <li>b) Celula este cea mai mică unitate funcțională a vieții</li>\n      <li>c) Toate celulele au aceeași formă</li>\n      <li>d) Celulele nu pot supraviețui independent</li>\n    </ul>\n  </div>\n</div>\n\n<div class=\"exercise\">\n  <div class=\"exercise-header\">\n    <span class=\"exercise-number\">Exercițiul 2</span>\n    <span class=\"points\">(15 puncte)</span>\n  </div>\n  <div class=\"exercise-content\">\n    <p>Numește cele trei părți principale ale unei celule și descrie pe scurt rolul fiecăreia.</p>\n  </div>\n</div>\n\n<div class=\"exercise\">\n  <div class=\"exercise-header\">\n    <span class=\"exercise-number\">Exercițiul 3</span>\n    <span class=\"points\">(15 puncte)</span>\n  </div>\n  <div class=\"exercise-content\">\n    <p>Compară celula animală cu celula vegetală. Menționează două asemănări și două deosebiri.</p>\n  </div>\n</div>\n\n<div class=\"exercise\">\n  <div class=\"exercise-header\">\n    <span class=\"exercise-number\">Exercițiul 4</span>\n    <span class=\"points\">(20 puncte)</span>\n  </div>\n  <div class=\"exercise-content\">\n    <p>Explică de ce celula este considerată \"unitatea structurală și funcțională a vieții\". Folosește exemple pentru a-ți susține răspunsul.</p>\n  </div>\n</div>\n\n<div class=\"exercise\">\n  <div class=\"exercise-header\">\n    <span class=\"exercise-number\">Exercițiul 5</span>\n    <span class=\"points\">(20 puncte)</span>\n  </div>\n  <div class=\"exercise-content\">\n    <p>Desenează schema unei celule (animală sau vegetală, la alegere) și etichetează cel puțin 5 componente ale acesteia. Adaugă o scurtă descriere a funcției fiecărei componente desenate.</p>\n  </div>\n</div>\n\n<p><strong>Total puncte: 80</strong></p>"
+  }
+}
+```
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Missing required parameters: lesson_content, num_exercises, subject, grade, questions, and answers are required"
+}
+```
+
+**Error Response (500 Internal Server Error):**
+```json
+{
+  "error": "Internal server error: Vector store not found"
+}
+```
+
+### Usage Flow
+
+The homework generation follows a two-step workflow:
+
+1. **Step 1:** Call `/api/generate-homework-questions` to get clarifying questions
+   - Provide lesson content, number of exercises, subject, and grade
+   - Receive questions about difficulty level, exercise types, time allocation, etc.
+
+2. **Step 2:** Call `/api/generate-homework` to generate exercises
+   - Provide all parameters from Step 1
+   - Add the questions and answers from Step 1
+   - Receive complete homework with various exercise types in HTML format
+
+### HTML Structure
+
+The homework HTML includes styled elements:
+- `<h1>` - Main title
+- `<h2>` - Section headers
+- `<div class="exercise">` - Exercise container
+- `<div class="exercise-header">` - Exercise number and points
+- `<div class="exercise-content">` - Exercise text and questions
+- `<span class="exercise-number">` - Exercise number
+- `<span class="points">` - Point value
+- `<div class="hint">` - Optional hints (if requested)
+
+---
+
+## 7. Chat Endpoint
+
+**Endpoint:** `POST /api/chat`
+
+This endpoint provides an educational chatbot assistant that adapts its tone and communication style based on user role (student or individual). Maintains session-based conversation history.
+
+### Request
+
+**URL:** `http://localhost:5000/api/chat`
+
+**Method:** `POST`
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json"
+}
+```
+
+**Body for NEW session (Student):**
+```json
+{
+  "lesson_content": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<h2>Introducere</h2>\n<p>Celula este cea mai mică unitate structurală și funcțională a vieții...</p>",
+  "user_prompt": "Ce este citoplasma și la ce servește?",
+  "subject": "Biologie",
+  "user_role": "student",
+  "grade": 6
+}
+```
+
+**Body for NEW session (Individual):**
+```json
+{
+  "lesson_content": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<h2>Introducere</h2>\n<p>Celula este cea mai mică unitate structurală și funcțională a vieții...</p>",
+  "user_prompt": "Care sunt diferențele principale între celula procariotă și eucariotă?",
+  "subject": "Biologie",
+  "user_role": "individual"
+}
+```
+
+**Body for EXISTING session (follow-up):**
+```json
+{
+  "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "user_prompt": "Poți să-mi dai un exemplu mai simplu?"
+}
+```
+
+**Field Descriptions:**
+- `lesson_content` (string, required for new session): The lesson content in HTML format from `/api/generate-lecture`
+- `user_prompt` (string, required): The user's question or message
+- `subject` (string, required for new session): Subject name (e.g., "Biologie", "Matematică")
+- `user_role` (string, required for new session): Either "student" or "individual"
+- `grade` (int, required if user_role is "student"): Grade level (1-12)
+- `session_id` (string, optional): Session ID from previous chat. If provided, continues existing conversation
+
+### Response
+
+**Success Response - New Session (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "response": "Bună! Citoplasma este un fel de 'supă' specială care umple celula. Gândește-te la celulă ca la un balon umplut cu apă – citoplasma este acea apă, dar mult mai specială! \n\nÎn citoplasma plutesc toate organitele celulei, ca niște jucării într-o piscină. Ea le ține pe toate la locul lor și le ajută să lucreze împreună.\n\nCitoplasma mai are și un rol foarte important: transportă substanțele nutritive (ca mâncarea pentru celulă) și ajută la eliminarea deșeurilor (ca un sistem de curățenie).\n\nAi mai vrea să știi ceva despre părțile celulei? 😊",
+    "user_role": "student",
+    "grade": 6,
+    "message_count": 2
+  }
+}
+```
+
+**Success Response - Continuing Session (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "session_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "response": "Sigur! Hai să folosim un exemplu simplu pe care îl cunoști:\n\nGândește-te că celula este ca o școală:\n- Membrana celulară este ca poarta școlii - controlează cine intră și cine iese\n- Citoplasma este ca holurile și sălile de clasă - acolo se întâmplă totul\n- Nucleul este ca directorul școlii - el dă ordinele și se asigură că totul funcționează bine\n\nȘi cum în școală ai profesori, bibliotecă, cantină - tot așa și în citoplasmă sunt organite care au fiecare treaba lor! Cool, nu? 🏫",
+    "user_role": "student",
+    "grade": 6,
+    "message_count": 4
+  }
+}
+```
+
+**Success Response - Individual User (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "session_id": "b2c3d4e5-f6g7-8901-bcde-fg2345678901",
+    "response": "Diferențele principale între celulele procariote și eucariote sunt:\n\n**Celule Procariote:**\n- Nu au nucleu delimitat de membrană - materialul genetic este liber în citoplasmă (în regiunea numită nucleoid)\n- Nu au organite învelite în membrane\n- Ribozomi mai mici (70S)\n- ADN circular\n- Exemple: bacterii, arhee\n\n**Celule Eucariote:**\n- Au nucleu delimitat de membrană nucleară\n- Conțin organite specializate (mitocondrii, aparat Golgi, reticulul endoplasmatic, etc.)\n- Ribozomi mai mari (80S)\n- ADN liniar organizat în cromozomi\n- Exemple: celule animale, vegetale, fungi, protiste\n\nAceastă diferențiere fundamentală reflectă evoluția complexității celulare și specializarea funcțiilor. Celulele eucariote permit o organizare mult mai complexă datorită compartimentării proceselor metabolice în organite distincte.\n\nDoriți să aprofundăm vreun aspect specific al acestor diferențe?",
+    "user_role": "individual",
+    "grade": null,
+    "message_count": 2
+  }
+}
+```
+
+**Error Response (400 Bad Request) - Missing parameters:**
+```json
+{
+  "error": "Missing required parameter: user_prompt is required"
+}
+```
+
+**Error Response (404 Not Found) - Session expired:**
+```json
+{
+  "error": "Session not found or expired. Please create a new session."
+}
+```
+
+**Error Response (500 Internal Server Error):**
+```json
+{
+  "error": "Internal server error: [error details]"
+}
+```
+
+### Key Features
+
+**Role-Based Adaptation:**
+- **Student (Grades 1-4)**: Very simple, playful language with emojis, short sentences, storytelling
+- **Student (Grades 5-8)**: Friendly, conversational, examples from their interests, balanced playfulness
+- **Student (Grades 9-12)**: Mature, respectful, academic tone, real-world applications, university prep
+- **Individual**: Professional, comprehensive, detailed explanations for adult learners
+
+**Session Management:**
+- Sessions are temporary and stored in-memory (not persisted to database)
+- Sessions expire after 1 hour of inactivity
+- Each session maintains its own conversation history
+- Automatic cleanup of expired sessions
+
+**Web Search Capability:**
+- Uses GPT-4o model with web search capabilities
+- Can provide current information and additional examples
+- Verifies information from credible sources
+
+### Usage Flow
+
+**Flow for New Session:**
+1. Frontend calls `/api/generate-lecture` to get lesson content
+2. User starts chat with lesson content, first prompt, role, and grade (if student)
+3. Backend creates new session, generates response
+4. Frontend stores `session_id` for subsequent messages
+
+**Flow for Continuing Session:**
+1. User sends another message with existing `session_id` and new prompt
+2. Backend retrieves session, maintains context from conversation history
+3. Chatbot generates contextual response
+4. Session automatically updated with new messages
+
+### Example JavaScript Integration
+
+```javascript
+// Start new chat session
+async function startChat(lessonContent, subject, userRole, grade = null) {
+  const payload = {
+    lesson_content: lessonContent,
+    user_prompt: "Bună! Poți să mă ajuți să înțeleg această lecție?",
+    subject: subject,
+    user_role: userRole
+  };
+  
+  if (userRole === "student") {
+    payload.grade = grade;
+  }
+  
+  const response = await fetch('http://localhost:5000/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  
+  const data = await response.json();
+  
+  // Store session_id for future messages
+  sessionStorage.setItem('chat_session_id', data.data.session_id);
+  
+  return data.data;
+}
+
+// Continue existing chat
+async function sendMessage(message) {
+  const sessionId = sessionStorage.getItem('chat_session_id');
+  
+  const response = await fetch('http://localhost:5000/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id: sessionId,
+      user_prompt: message
+    })
+  });
+  
+  const data = await response.json();
+  
+  if (response.status === 404) {
+    // Session expired, need to create new session
+    console.error('Session expired');
+    return null;
+  }
+  
+  return data.data;
+}
+
+// Example usage
+const studentData = await startChat(lessonHTML, "Biologie", "student", 6);
+console.log("Chatbot:", studentData.response);
+
+const followUp = await sendMessage("Poți să-mi dai un exemplu?");
+console.log("Chatbot:", followUp.response);
+```
+
+

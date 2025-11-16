@@ -11,12 +11,16 @@ import base64
 import os
 import datetime
 
+from firebase_service import FirebaseService
 from services import QuestionsService, LectureService, PresentonService, PodcastService
 from config import Config
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)  # Enable CORS for frontend communication
+
+# Initialize Firebase Storage at startup
+FirebaseService.initialize()
 
 # Initialize services
 print("Initializing services...")
@@ -342,6 +346,8 @@ def generate_podcast():
         teacher_version = data.get('teacher_version')
         grade = data.get('grade')
         subject = data.get('subject')
+        teacher_id = data.get('teacher_id')
+        lecture_id = data.get('lecture_id')
         
         if not student_version or not teacher_version:
             return jsonify({
@@ -353,10 +359,16 @@ def generate_podcast():
                 "error": "Missing required parameters: grade and subject are required"
             }), 400
         
+        if not teacher_id or not lecture_id:
+            return jsonify({
+                "error": "Missing required parameters: teacher_id and lecture_id are required"
+            }), 400
+        
         # Optional parameters
         target_duration = data.get('target_duration', 300)  # 5 minutes default
         return_dialogue = data.get('return_dialogue', True)
         silence_between_turns = data.get('silence_between_turns', 500)
+        upload_to_firebase = data.get('upload_to_firebase', True)  # Default to Firebase upload
         
         # Validate target_duration
         try:
@@ -372,58 +384,56 @@ def generate_podcast():
         
         # Generate podcast
         print(f"Generating podcast: {subject}, Grade {grade}, Duration: {target_duration}s")
-        audio_bytes, dialogue = podcast_service.create_podcast(
+        result = podcast_service.create_podcast(
             student_content=student_version,
             teacher_content=teacher_version,
             grade=grade,
             subject=subject,
             target_duration=target_duration,
-            silence_between_turns=silence_between_turns
+            silence_between_turns=silence_between_turns,
+            teacher_id=teacher_id,
+            lecture_id=lecture_id,
+            upload_to_firebase=upload_to_firebase
         )
         
-        # Save podcast file locally
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"podcast_{subject}_{grade}_{timestamp}.mp3"
-        output_path = os.path.join(os.getcwd(), "podcasts", filename)
+        audio_bytes = result['audio_bytes']
+        dialogue = result['dialogue']
+        duration_seconds = result['duration_seconds']
+        firebase_info = result.get('firebase_info')
         
-        # Create podcasts directory if it doesn't exist
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        
-        # Write audio bytes to file
-        with open(output_path, 'wb') as f:
-            f.write(audio_bytes)
-        
-        print(f"✓ Podcast saved to: {output_path}")
-        
-        # Create response
-        if return_dialogue:
-            # Return JSON with audio data (base64 encoded) and dialogue
-            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
-            
-            return jsonify({
-                "success": True,
-                "data": {
-                    "audio_base64": audio_base64,
-                    "audio_size_bytes": len(audio_bytes),
-                    "file_path": output_path,
-                    "filename": filename,
-                    "dialogue": dialogue,
-                    "metadata": {
-                        "grade": grade,
-                        "subject": subject,
-                        "duration_target": target_duration,
-                        "turns_count": len(dialogue)
-                    }
+        # Build response
+        response_data = {
+            "success": True,
+            "data": {
+                "audio_size_bytes": result['size_bytes'],
+                "duration_seconds": duration_seconds,
+                "dialogue": dialogue if return_dialogue else None,
+                "metadata": {
+                    "grade": grade,
+                    "subject": subject,
+                    "teacher_id": teacher_id,
+                    "lecture_id": lecture_id,
+                    "duration_target": target_duration,
+                    "turns_count": len(dialogue)
                 }
-            }), 200
-        else:
-            # Return audio file directly
-            return send_file(
-                BytesIO(audio_bytes),
-                mimetype='audio/mpeg',
-                as_attachment=True,
-                download_name=f'podcast_{subject}_{grade}.mp3'
-            )
+            }
+        }
+        
+        # Add Firebase info if uploaded
+        if firebase_info:
+            response_data["data"]["firebase"] = {
+                "path": firebase_info['destination_path'],
+                "download_url": firebase_info['download_url'],
+                "size_bytes": firebase_info['size_bytes']
+            }
+            print(f"✓ Podcast uploaded to Firebase: {firebase_info['destination_path']}")
+        
+        # Include audio base64 if requested
+        if return_dialogue:
+            audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+            response_data["data"]["audio_base64"] = audio_base64
+        
+        return jsonify(response_data), 200
         
     except Exception as e:
         print(f"Error in generate_podcast: {e}")

@@ -35,5 +35,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Firebase credentials
+firebase-service-account.json
+*-firebase-adminsdk-*.json
+
 # Custom
 PROJECT_CONTEXT.md

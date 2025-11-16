@@ -794,7 +794,7 @@ curl http://localhost:5000/api/health
 
 **Endpoint:** `POST /api/generate-podcast`
 
-This endpoint generates an educational podcast from the lecture content using OpenAI GPT-4o to create a natural dialogue between two speakers (Ana - teacher and Mihai - student) and Async.ai text-to-speech API to convert the dialogue to audio. The result is a complete MP3 audio file with both voices.
+This endpoint generates an educational podcast from the lecture content using OpenAI GPT-4o to create a natural dialogue between two speakers (Ana - teacher and Mihai - student) and OpenAI text-to-speech API to convert the dialogue to audio. The result is a complete MP3 audio file uploaded to Firebase Storage.
 
 ### Request
 
@@ -816,9 +816,12 @@ This endpoint generates an educational podcast from the lecture content using Op
   "teacher_version": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<div class=\"teacher-note\">[NOTĂ PROFESOR: Această lecție este concepută pentru clasa a 6-a...]</div>",
   "grade": 6,
   "subject": "Biologie",
+  "teacher_id": "teacher_12345",
+  "lecture_id": "lecture_67890",
   "target_duration": 300,
   "return_dialogue": true,
-  "silence_between_turns": 500
+  "silence_between_turns": 500,
+  "upload_to_firebase": true
 }
 ```
 
@@ -827,19 +830,28 @@ This endpoint generates an educational podcast from the lecture content using Op
 - `teacher_version` (string, required): The HTML content for teachers from `/api/generate-lecture`
 - `grade` (int, required): Grade level (1-12) for age-appropriate dialogue
 - `subject` (string, required): Subject name for contextual dialogue
+- `teacher_id` (string, required): Unique identifier for the teacher (used in Firebase Storage path)
+- `lecture_id` (string, required): Unique identifier for the lecture (used in Firebase Storage path)
 - `target_duration` (int, optional): Target podcast duration in seconds (default: 300, range: 60-1800)
-- `return_dialogue` (boolean, optional): If true, returns JSON with audio and dialogue transcript. If false, returns audio file directly (default: true)
+- `return_dialogue` (boolean, optional): If true, includes dialogue transcript in response (default: true)
 - `silence_between_turns` (int, optional): Milliseconds of silence between dialogue turns (default: 500)
+- `upload_to_firebase` (boolean, optional): If true, uploads to Firebase Storage (default: true)
+
+**Firebase Storage Path:**
+The podcast will be stored at: `{teacher_id}/{grade}/{lecture_id}/podcast_{timestamp}.mp3`
+
+Example: `teacher_12345/6/lecture_67890/podcast_20241116_143045.mp3`
 
 ### Response
 
-**Success Response with Dialogue (200 OK):**
+**Success Response with Firebase Upload (200 OK):**
 ```json
 {
   "success": true,
   "data": {
     "audio_base64": "SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAAGJgDU1NTU1NTU1NTU1NTU1NTU1NTU...",
-    "audio_size_bytes": 245632,
+    "audio_size_bytes": 2458624,
+    "duration_seconds": 287.5,
     "dialogue": [
       {
         "speaker": "Ana",
@@ -854,15 +866,189 @@ This endpoint generates an educational podcast from the lecture content using Op
         "text": "Exact! Celula este cea mai mică unitate vie. Toate ființele vii, de la bacterii care au o singură celulă, până la oameni care au trilioane de celule, sunt alcătuite din aceste unități minuscule."
       }
     ],
+    "firebase": {
+      "path": "teacher_12345/6/lecture_67890/podcast_20241116_143045.mp3",
+      "download_url": "https://storage.googleapis.com/your-bucket.appspot.com/teacher_12345/6/lecture_67890/podcast_20241116_143045.mp3?GoogleAccessId=...&Expires=...&Signature=...",
+      "size_bytes": 2458624
+    },
     "metadata": {
       "grade": 6,
       "subject": "Biologie",
+      "teacher_id": "teacher_12345",
+      "lecture_id": "lecture_67890",
       "duration_target": 300,
-      "turns_count": 10
+      "turns_count": 12
     }
   }
 }
 ```
 
-For complete examples and more details, please refer to the updated API_EXAMPLES.md file.
+**Field Descriptions in Response:**
+- `success` (boolean): Indicates if the request was successful
+- `data.audio_base64` (string): Base64-encoded MP3 audio data (if `return_dialogue=true`)
+- `data.audio_size_bytes` (int): Size of the audio file in bytes
+- `data.duration_seconds` (float): Actual duration of the generated podcast
+- `data.dialogue` (array): Array of dialogue turns with speaker names and text (if `return_dialogue=true`)
+- `data.firebase` (object): Firebase Storage information (if `upload_to_firebase=true`)
+  - `path` (string): The path where the file is stored in Firebase Storage
+  - `download_url` (string): Signed URL for downloading the file (valid for 7 days)
+  - `size_bytes` (int): Size of the uploaded file
+- `data.metadata` (object): Additional information about the podcast generation
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Missing required parameters: teacher_id and lecture_id are required"
+}
+```
+
+**Error Response (500 Internal Server Error):**
+```json
+{
+  "error": "Internal server error: Firebase Storage is not available. Please configure Firebase credentials."
+}
+```
+
+**Error Response (503 Service Unavailable):**
+```json
+{
+  "error": "Podcast service is not available: ffmpeg/ffprobe not found"
+}
+```
+
+### cURL Example
+```bash
+curl -X POST http://localhost:5000/api/generate-podcast \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student_version": "<h1>Celula</h1><p>Celula este cea mai mică unitate vie...</p>",
+    "teacher_version": "<h1>Celula</h1><div class=\"teacher-note\">[NOTĂ PROFESOR...]</div>",
+    "grade": 6,
+    "subject": "Biologie",
+    "teacher_id": "teacher_12345",
+    "lecture_id": "lecture_67890",
+    "target_duration": 180,
+    "return_dialogue": true,
+    "upload_to_firebase": true
+  }'
+```
+
+### Python Example
+```python
+import requests
+import json
+
+# Generate podcast with Firebase upload
+response = requests.post(
+    'http://localhost:5000/api/generate-podcast',
+    json={
+        'student_version': student_html,  # From /api/generate-lecture
+        'teacher_version': teacher_html,  # From /api/generate-lecture
+        'grade': 6,
+        'subject': 'Biologie',
+        'teacher_id': 'teacher_12345',
+        'lecture_id': 'lecture_67890',
+        'target_duration': 300,
+        'return_dialogue': True,
+        'upload_to_firebase': True
+    }
+)
+
+if response.status_code == 200:
+    data = response.json()
+    
+    # Get Firebase download URL
+    firebase_url = data['data']['firebase']['download_url']
+    print(f"Podcast uploaded to: {firebase_url}")
+    
+    # Get dialogue transcript
+    dialogue = data['data']['dialogue']
+    for turn in dialogue:
+        print(f"{turn['speaker']}: {turn['text']}")
+    
+    # Optionally save audio locally from base64
+    import base64
+    audio_bytes = base64.b64decode(data['data']['audio_base64'])
+    with open('podcast.mp3', 'wb') as f:
+        f.write(audio_bytes)
+else:
+    print(f"Error: {response.json()['error']}")
+```
+
+### JavaScript Fetch Example
+```javascript
+fetch('http://localhost:5000/api/generate-podcast', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    student_version: studentVersionHTML,  // From previous endpoint
+    teacher_version: teacherVersionHTML,  // From previous endpoint
+    grade: 6,
+    subject: 'Biologie',
+    teacher_id: 'teacher_12345',
+    lecture_id: 'lecture_67890',
+    target_duration: 300,
+    return_dialogue: true,
+    upload_to_firebase: true
+  })
+})
+  .then(response => response.json())
+  .then(data => {
+    const firebaseUrl = data.data.firebase.download_url;
+    const dialogue = data.data.dialogue;
+    const duration = data.data.duration_seconds;
+    
+    console.log(`Podcast generated: ${duration}s`);
+    console.log(`Download from: ${firebaseUrl}`);
+    
+    // Display dialogue transcript
+    dialogue.forEach(turn => {
+      console.log(`${turn.speaker}: ${turn.text}`);
+    });
+    
+    // Play audio in browser
+    const audio = new Audio(`data:audio/mpeg;base64,${data.data.audio_base64}`);
+    audio.play();
+  })
+  .catch(error => console.error('Error:', error));
+```
+
+**Important Notes:**
+
+1. **Firebase Storage**: Requires Firebase credentials to be configured in `.env`:
+   - `FIREBASE_SERVICE_ACCOUNT_PATH`: Path to service account JSON file
+   - `FIREBASE_STORAGE_BUCKET`: Your Firebase Storage bucket name
+
+2. **Storage Structure**: Podcasts are organized by teacher, grade, and lecture:
+   ```
+   teacher_12345/
+   ├── 6/
+   │   ├── lecture_67890/
+   │   │   ├── podcast_20241116_143045.mp3
+   │   │   └── podcast_20241116_150230.mp3
+   │   └── lecture_67891/
+   │       └── podcast_20241116_144512.mp3
+   └── 7/
+       └── lecture_67892/
+           └── podcast_20241116_145623.mp3
+   ```
+
+3. **Download URLs**: The signed URLs are valid for 7 days. After expiration, you can generate new URLs using Firebase Admin SDK or Firebase Console.
+
+4. **Local Storage**: By default, podcasts are NOT saved locally. If `upload_to_firebase=false`, the endpoint will return audio data but won't persist it anywhere.
+
+5. **Audio Format**: Generated podcasts are in MP3 format with stereo audio at 44.1kHz.
+
+6. **Processing Time**: Podcast generation typically takes 30-90 seconds depending on target duration:
+   - 2-3 minutes podcast: ~30-45 seconds
+   - 5 minutes podcast: ~60-90 seconds
+   - Show loading indicator in your UI
+
+7. **Voices**: Uses OpenAI TTS with Romanian-capable voices:
+   - **Ana** (female): "nova" voice - warm, clear
+   - **Mihai** (male): "onyx" voice - deep, authoritative
+
+8. **Error Handling**: The endpoint includes graceful error handling. If Firebase is not configured but `upload_to_firebase=true`, it will return a clear error message rather than failing silently.
 

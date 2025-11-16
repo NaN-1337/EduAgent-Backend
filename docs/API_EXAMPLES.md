@@ -2191,4 +2191,249 @@ gradeData.data.exercises.forEach(exercise => {
 
 ---
 
+## 10. Generate Flashcards Endpoint
+
+**Endpoint:** `POST /api/generate-flashcards`
+
+This endpoint generates educational flashcards from lesson content using GPT-4o. Flashcards are created as question-answer pairs that help students review and memorize key concepts from the lesson.
+
+### Request
+
+**URL:** `http://localhost:5000/api/generate-flashcards`
+
+**Method:** `POST`
+
+**Headers:**
+```json
+{
+  "Content-Type": "application/json"
+}
+```
+
+**Body:**
+```json
+{
+  "student_version": "<h1>Celula - unitatea structurală și funcțională a vieții</h1>\n\n<h2>Introducere</h2>\n<p>Celula este cea mai mică unitate vie a organismelor. Toate ființele vii sunt alcătuite din una sau mai multe celule...</p>",
+  "num_flashcards": 10,
+  "subject": "Biologie",
+  "grade": 6
+}
+```
+
+**Field Descriptions:**
+- `student_version` (string, required): The HTML content from `/api/generate-lecture` endpoint
+- `num_flashcards` (int, required): Number of flashcards to generate (1-50)
+- `subject` (string, optional): Subject name for context
+- `grade` (int, optional): Grade level for context
+
+### Response
+
+**Success Response (200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "flashcards": [
+      {
+        "flashcard_text": "Ce este celula?",
+        "answer": "Celula este cea mai mică unitate structurală și funcțională a vieții. Toate organismele vii sunt formate din una sau mai multe celule."
+      },
+      {
+        "flashcard_text": "Nucleul celulei conține ______ și controlează funcțiile celulare.",
+        "answer": "ADN (material genetic)"
+      },
+      {
+        "flashcard_text": "Care sunt cele trei componente principale ale unei celule?",
+        "answer": "Membrana celulară, citoplasma și nucleul."
+      },
+      {
+        "flashcard_text": "Ce rol are membrana celulară?",
+        "answer": "Membrana celulară protejează celula și controlează ce intră și iese din ea, funcționând ca un filtru selectiv."
+      },
+      {
+        "flashcard_text": "Citoplasma este ______ în care plutesc organitele celulare.",
+        "answer": "o substanță gelatinoasă"
+      },
+      {
+        "flashcard_text": "Care este diferența principală între celula animală și celula vegetală?",
+        "answer": "Celula vegetală are perete celular rigid și cloroplaste pentru fotosinteză, în timp ce celula animală nu are aceste structuri."
+      },
+      {
+        "flashcard_text": "De ce plantele sunt verzi?",
+        "answer": "Plantele sunt verzi datorită clorofilei din cloroplaste, care este necesară pentru fotosinteză."
+      },
+      {
+        "flashcard_text": "Enumeră patru funcții ale celulei.",
+        "answer": "Nutriția, respirația celulară, reproducerea și eliminarea deșeurilor."
+      },
+      {
+        "flashcard_text": "Ce este respirația celulară?",
+        "answer": "Respirația celulară este procesul prin care celula obține energie din substanțele nutritive, având loc în mitocondrii."
+      },
+      {
+        "flashcard_text": "De ce celula este considerată \"unitatea funcțională\" a vieții?",
+        "answer": "Pentru că toate procesele vitale (nutriție, respirație, reproducere) au loc la nivel celular."
+      }
+    ],
+    "count": 10,
+    "subject": "Biologie",
+    "grade": 6
+  }
+}
+```
+
+**Field Descriptions in Response:**
+- `success` (boolean): Indicates if the request was successful
+- `data.flashcards` (array): Array of flashcard objects
+  - `flashcard_text` (string): The question, statement to complete, or prompt
+  - `answer` (string): The complete answer or explanation
+- `data.count` (int): Actual number of flashcards generated
+- `data.subject` (string): Subject name
+- `data.grade` (int): Grade level
+
+**Error Response (400 Bad Request):**
+```json
+{
+  "error": "Missing required parameter: student_version is required"
+}
+```
+
+**Error Response (400 Bad Request - Invalid Range):**
+```json
+{
+  "error": "num_flashcards must be between 1 and 50"
+}
+```
+
+**Error Response (500 Internal Server Error):**
+```json
+{
+  "error": "Content is too short to generate flashcards (minimum 100 characters)"
+}
+```
+
+### cURL Example
+```bash
+curl -X POST http://localhost:5000/api/generate-flashcards \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student_version": "<h1>Celula</h1><p>Celula este cea mai mică unitate vie...</p>",
+    "num_flashcards": 10,
+    "subject": "Biologie",
+    "grade": 6
+  }'
+```
+
+### JavaScript Fetch Example
+```javascript
+fetch('http://localhost:5000/api/generate-flashcards', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    student_version: studentVersionHTML,  // From /api/generate-lecture
+    num_flashcards: 10,
+    subject: 'Biologie',
+    grade: 6
+  })
+})
+  .then(response => response.json())
+  .then(data => {
+    const flashcards = data.data.flashcards;
+    const count = data.data.count;
+    
+    console.log(`Generated ${count} flashcards`);
+    
+    // Display flashcards
+    flashcards.forEach((card, index) => {
+      console.log(`\nFlashcard ${index + 1}:`);
+      console.log(`Q: ${card.flashcard_text}`);
+      console.log(`A: ${card.answer}`);
+    });
+  })
+  .catch(error => console.error('Error:', error));
+```
+
+### Complete Workflow with Flashcards
+
+```javascript
+// Step 1: Generate lecture
+const lectureResponse = await fetch('http://localhost:5000/api/generate-lecture', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    title: 'Celula - unitatea structurală și funcțională a vieții',
+    subject: 'biologie',
+    grade: 6,
+    questions: questions,
+    answers: answers
+  })
+});
+
+const lectureData = await lectureResponse.json();
+const studentVersion = lectureData.data.student_version;
+
+// Step 2: Generate flashcards from the lesson
+const flashcardsResponse = await fetch('http://localhost:5000/api/generate-flashcards', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    student_version: studentVersion,
+    num_flashcards: 10,
+    subject: 'Biologie',
+    grade: 6
+  })
+});
+
+const flashcardsData = await flashcardsResponse.json();
+const flashcards = flashcardsData.data.flashcards;
+
+// Display in your flashcard UI
+flashcards.forEach((card, index) => {
+  createFlashcardElement(card.flashcard_text, card.answer, index);
+});
+```
+
+**Important Notes:**
+
+1. **Flashcard Types**: The AI generates various types of flashcards:
+   - Direct questions: "Ce este...?", "Care sunt...?"
+   - Fill-in-the-blank: "______ este cea mai mică unitate a vieții."
+   - Comparisons: "Care este diferența între X și Y?"
+   - Definitions: "Defineşte conceptul de..."
+   - Applications: "Dă un exemplu de..."
+
+2. **Content Coverage**: Flashcards cover all major concepts from the lesson in logical order.
+
+3. **Number of Flashcards**: 
+   - Minimum: 1 flashcard
+   - Maximum: 50 flashcards per request
+   - Recommended: 10-15 flashcards for a standard lesson
+
+4. **Content Length**: The student_version must be at least 100 characters long. For best results, use complete lesson content with multiple sections.
+
+5. **Processing Time**: Flashcard generation typically takes 5-15 seconds depending on the number requested.
+
+6. **Answer Quality**: Answers are:
+   - Clear and concise
+   - Accurate to the lesson content
+   - Written in Romanian
+   - Age-appropriate for the grade level
+
+7. **Use Cases**:
+   - Study tools for students
+   - Quick review before tests
+   - Spaced repetition learning apps
+   - Digital flashcard platforms
+   - Mobile learning applications
+
+8. **Integration**: Perfect for:
+   - Flashcard apps (Anki, Quizlet-style)
+   - Learning management systems
+   - Student portals
+   - Mobile education apps
+
+---
+
 

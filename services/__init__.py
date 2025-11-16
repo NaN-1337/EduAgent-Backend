@@ -13,6 +13,7 @@ from .chatbot_service import ChatbotService
 from .quiz_service import QuizService
 from .pdf_parser_service import PDFParserService
 from .homework_grading_service import HomeworkGradingService
+from .flashcards_service import FlashcardsService
 
 __all__ = [
     'QuestionsService',
@@ -24,5 +25,6 @@ __all__ = [
     'ChatbotService',
     'QuizService',
     'PDFParserService',
-    'HomeworkGradingService'
+    'HomeworkGradingService',
+    'FlashcardsService'
 ]

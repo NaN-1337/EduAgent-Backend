@@ -17,7 +17,8 @@ from services import (
     ChatbotService,
     QuizService,
     PDFParserService,
-    HomeworkGradingService
+    HomeworkGradingService,
+    FlashcardsService
 )
 from config import Config
 from session_manager import get_session_manager
@@ -43,6 +44,7 @@ try:
     quiz_service = QuizService()
     pdf_parser_service = PDFParserService()
     grading_service = HomeworkGradingService()
+    flashcards_service = FlashcardsService()
     
     # Try to initialize Presenton service (optional)
     try:
@@ -991,6 +993,93 @@ def grade_homework():
         
     except Exception as e:
         print(f"Error grading homework: {e}")
+        traceback.print_exc()
+        return jsonify({
+            "error": f"Internal server error: {str(e)}"
+        }), 500
+
+
+@app.route('/api/generate-flashcards', methods=['POST'])
+def generate_flashcards():
+    """
+    Generate flashcards from student lesson content.
+    
+    Expected JSON body:
+    {
+        "student_version": "<h1>Lesson content...</h1>",
+        "num_flashcards": 10,
+        "subject": "Biologie",
+        "grade": 6
+    }
+    
+    Returns JSON with flashcards array.
+    """
+    try:
+        # Validate request
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided"
+            }), 400
+        
+        # Extract parameters
+        student_version = data.get('student_version')
+        num_flashcards = data.get('num_flashcards')
+        subject = data.get('subject', '')
+        grade = data.get('grade')
+        
+        if not student_version:
+            return jsonify({
+                "error": "Missing required parameter: student_version is required"
+            }), 400
+        
+        if not num_flashcards:
+            return jsonify({
+                "error": "Missing required parameter: num_flashcards is required"
+            }), 400
+        
+        # Validate num_flashcards
+        try:
+            num_flashcards = int(num_flashcards)
+        except (ValueError, TypeError):
+            return jsonify({
+                "error": "num_flashcards must be a valid integer"
+            }), 400
+        
+        if num_flashcards < 1 or num_flashcards > 50:
+            return jsonify({
+                "error": "num_flashcards must be between 1 and 50"
+            }), 400
+        
+        print(f"Generating {num_flashcards} flashcards for {subject} grade {grade}")
+        
+        # Generate flashcards
+        result = flashcards_service.generate_flashcards(
+            student_version=student_version,
+            num_flashcards=num_flashcards,
+            subject=subject,
+            grade=grade
+        )
+        
+        if not result.get("success"):
+            return jsonify({
+                "error": result.get("error", "Failed to generate flashcards")
+            }), 500
+        
+        # Return flashcards
+        return jsonify({
+            "success": True,
+            "data": {
+                "flashcards": result["flashcards"],
+                "count": result["count"],
+                "subject": result.get("subject", ""),
+                "grade": result.get("grade")
+            }
+        }), 200
+        
+    except Exception as e:
+        print(f"Error generating flashcards: {e}")
         traceback.print_exc()
         return jsonify({
             "error": f"Internal server error: {str(e)}"
